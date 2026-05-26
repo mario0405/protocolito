@@ -30,7 +30,10 @@ jobs:
 
       - name: Install Linux packaging dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libarchive-tools rpm
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools rpm fakeroot
+          sudo apt-get install -y libfuse2 || sudo apt-get install -y libfuse2t64
 
       - name: Install dependencies
         run: npm ci
@@ -38,8 +41,24 @@ jobs:
       - name: Type check
         run: npm run lint
 
-      - name: Package app
-        run: npm run dist
+      - name: Build renderer
+        run: npm run build
+
+      - name: Package Windows app
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win nsis --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package macOS app
+        if: runner.os == 'macOS'
+        run: npx electron-builder --mac dmg --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package Linux app
+        if: runner.os == 'Linux'
+        run: npx electron-builder --linux AppImage deb --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
