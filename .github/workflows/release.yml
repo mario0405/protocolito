@@ -44,6 +44,13 @@ jobs:
       - name: Build renderer
         run: npm run build
 
+      - name: Prepare packaging icons
+        shell: bash
+        run: |
+          mkdir -p build
+          cp resources/app_icon.ico build/app_icon.ico
+          cp resources/icon.png build/icon.png
+
       - name: Package Windows app
         if: runner.os == 'Windows'
         run: npx electron-builder --win nsis --publish never
