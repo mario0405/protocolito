@@ -3,9 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { usePathname } from '@/lib/vite-shims/navigation';
 import { Toaster, toast } from 'sonner';
 import 'sonner/dist/styles.css';
-import Sidebar from '@/components/Sidebar';
 import SplashScreen from '@/components/SplashScreen';
-import MainContent from '@/components/MainContent';
 import AnalyticsProvider from '@/components/AnalyticsProvider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { RecordingStateProvider } from '@/contexts/RecordingStateContext';
@@ -29,6 +27,7 @@ import Home from '@/app/page';
 import MeetingDetails from '@/app/meeting-details/page';
 import SettingsPage from '@/app/settings/page';
 import MeetingSearchPage from '@/app/search/page';
+import { PageShell } from '@/components/PageShell';
 
 /* SplashScreen is now in its own component file */
 
@@ -236,13 +235,10 @@ function AppShell() {
                           ) : showOnboarding ? (
                             <OnboardingFlow onComplete={handleOnboardingComplete} />
                           ) : (
-                            <div className="flex">
+                            <PageShell>
                               <CalendarMeetingReminder />
-                              <Sidebar />
-                              <MainContent>
-                                <CurrentRoute />
-                              </MainContent>
-                            </div>
+                              <CurrentRoute />
+                            </PageShell>
                           )}
                           <ImportDropOverlay visible={showDropOverlay} />
                           <ConditionalImportDialog

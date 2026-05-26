@@ -11,12 +11,16 @@ interface SidebarItem {
   id: string;
   title: string;
   type: 'folder' | 'file';
+  dateLabel?: string;
   children?: SidebarItem[];
 }
 
 export interface CurrentMeeting {
   id: string;
   title: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  dateLabel?: string;
 }
 
 // Search result type for transcript search
@@ -82,14 +86,24 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
+  const formatMeetingDate = React.useCallback((value?: string | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '';
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }, []);
+
   // Extract fetchMeetings as a reusable function
   const fetchMeetings = React.useCallback(async () => {
     if (serverAddress) {
       try {
-        const meetings = await invoke('api_get_meetings') as Array<{ id: string, title: string }>;
+        const meetings = await invoke('api_get_meetings') as Array<{ id: string, title: string, created_at?: string, updated_at?: string }>;
         const transformedMeetings = meetings.map((meeting: any) => ({
           id: meeting.id,
-          title: meeting.title
+          title: meeting.title,
+          createdAt: meeting.created_at || null,
+          updatedAt: meeting.updated_at || null,
+          dateLabel: formatMeetingDate(meeting.created_at || meeting.updated_at),
         }));
         setMeetings(transformedMeetings);
         Analytics.trackBackendConnection(true);
@@ -99,7 +113,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
         Analytics.trackBackendConnection(false, error instanceof Error ? error.message : 'Unknown error');
       }
     }
-  }, [serverAddress]);
+  }, [serverAddress, formatMeetingDate]);
 
   useEffect(() => {
     fetchMeetings();
@@ -119,7 +133,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       title: 'Meeting Notes',
       type: 'folder' as const,
       children: [
-        ...meetings.map(meeting => ({ id: meeting.id, title: meeting.title, type: 'file' as const }))
+        ...meetings.map(meeting => ({ id: meeting.id, title: meeting.title, dateLabel: meeting.dateLabel, type: 'file' as const }))
       ]
     },
   ];

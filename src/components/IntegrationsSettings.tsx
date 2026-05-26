@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CalendarDays, Check, ChevronDown, RefreshCw } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, Clock3, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,6 +51,8 @@ const ICON_URLS: Record<IntegrationConfig['provider'], string> = {
   hubspot: 'https://cdn.simpleicons.org/hubspot/FF7A59',
   salesforce: 'https://www.salesforce.com/favicon.ico',
 };
+
+const ACTIVE_SEND_PROVIDERS = new Set<IntegrationConfig['provider']>(['notion', 'asana']);
 
 export function IntegrationsSettings() {
   const { t } = useConfig();
@@ -280,8 +282,11 @@ export function IntegrationsSettings() {
       </section>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {otherConfigs.map((config) => (
-          <section key={config.provider} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+        {otherConfigs.map((config) => {
+          const isConfigurable = ACTIVE_SEND_PROVIDERS.has(config.provider);
+
+          return (
+          <section key={config.provider} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm dark:border-stone-700 dark:bg-stone-900">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <img
@@ -290,16 +295,26 @@ export function IntegrationsSettings() {
                   className={`h-8 w-8 object-contain ${config.provider === 'notion' ? 'dark:invert' : ''}`}
                 />
                 <div>
-                  <h4 className="font-medium text-stone-950">{INTEGRATION_LABELS[config.provider]}</h4>
-                  <p className="text-xs text-stone-500">{t(HELP_KEYS[config.provider])}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="font-medium text-stone-950 dark:text-white">{INTEGRATION_LABELS[config.provider]}</h4>
+                    {!isConfigurable && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+                        <Clock3 className="h-3 w-3" />
+                        Soon
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">{t(HELP_KEYS[config.provider])}</p>
                 </div>
               </div>
               <Switch
-                checked={config.enabled}
+                checked={isConfigurable && config.enabled}
+                disabled={!isConfigurable}
                 onCheckedChange={(checked) => updateConfig(config.provider, { enabled: checked })}
               />
             </div>
 
+            {isConfigurable ? (
             <div className="mt-4 grid gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs text-stone-600">{t('integrations.accessToken')}</Label>
@@ -326,8 +341,14 @@ export function IntegrationsSettings() {
                 {t('integrations.autoSendSummaries')}
               </label>
             </div>
+            ) : (
+              <div className="mt-4 rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
+                Visible for roadmap clarity. Full OAuth/API setup will be added before this connector is enabled.
+              </div>
+            )}
           </section>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

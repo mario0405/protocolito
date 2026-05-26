@@ -203,6 +203,15 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
     await stopRecordingAction();
   }, [isRecording, isStarting, isStopping, stopRecordingAction, onStopInitiated]);
 
+  useEffect(() => {
+    const handleExternalStop = () => {
+      handleStopRecording();
+    };
+
+    window.addEventListener('stop-recording-from-card', handleExternalStop);
+    return () => window.removeEventListener('stop-recording-from-card', handleExternalStop);
+  }, [handleStopRecording]);
+
   const handlePauseRecording = useCallback(async () => {
     if (!isRecording || isPaused || isPausing) return;
 

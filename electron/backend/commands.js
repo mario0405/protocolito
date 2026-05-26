@@ -181,6 +181,25 @@ function buildMeetingSearchCorpus(meetings) {
   });
 }
 
+function scoreMeetingSearchDoc(doc, question) {
+  const terms = String(question || '')
+    .toLowerCase()
+    .split(/[^a-z0-9äöüéèàçß]+/i)
+    .filter((term) => term.length > 2);
+  if (!terms.length) return 0;
+
+  const title = String(doc.title || '').toLowerCase();
+  const text = String(doc.text || '').toLowerCase();
+  const created = String(doc.createdAt || '').toLowerCase();
+
+  return terms.reduce((score, term) => {
+    if (title.includes(term)) score += 6;
+    if (created.includes(term)) score += 3;
+    const matches = text.split(term).length - 1;
+    return score + Math.min(matches, 8);
+  }, 0);
+}
+
 function tokenPreview(encryptedToken) {
   const token = decryptJson(encryptedToken, null);
   return token?.access_token ? { connected: true, expiresAt: token.expires_at || null } : { connected: false, expiresAt: null };
@@ -254,6 +273,8 @@ function normalizeGoogleEvent(event) {
       email: attendee.email || '',
       name: attendee.displayName || '',
       responseStatus: attendee.responseStatus || '',
+      self: Boolean(attendee.self),
+      organizer: Boolean(attendee.organizer),
     })),
     description: isPrivate ? '' : (event.description || ''),
     location: isPrivate ? '' : (event.location || ''),
@@ -853,7 +874,12 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
       const question = String(query || '').trim();
       if (!question) return { answer: '', sources: [] };
       const docs = buildMeetingSearchCorpus(db.getAllMeetingDocuments()).filter((doc) => doc.text.trim());
-      const selected = docs.slice(0, Math.max(1, Number(limit)));
+      const scored = docs
+        .map((doc) => ({ doc, score: scoreMeetingSearchDoc(doc, question) }))
+        .sort((a, b) => b.score - a.score || String(b.doc.updatedAt).localeCompare(String(a.doc.updatedAt)));
+      const selected = (scored.some((item) => item.score > 0) ? scored.filter((item) => item.score > 0) : scored)
+        .slice(0, Math.max(1, Math.min(Number(limit) || 12, 20)))
+        .map((item) => item.doc);
       if (!selected.length) {
         return { answer: 'I could not find any saved meeting notes or transcripts to search.', sources: [] };
       }

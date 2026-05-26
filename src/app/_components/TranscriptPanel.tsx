@@ -2,11 +2,9 @@ import { VirtualizedTranscriptView } from '@/components/VirtualizedTranscriptVie
 import { PermissionWarning } from '@/components/PermissionWarning';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LANGUAGES } from '@/constants/languages';
 import { useTemplates } from '@/hooks/meeting-details/useTemplates';
-import { Copy, GlobeIcon, Mic, Settings } from 'lucide-react';
+import { Copy, GlobeIcon } from 'lucide-react';
 import { useTranscripts } from '@/contexts/TranscriptContext';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
@@ -15,6 +13,7 @@ import { ModalType } from '@/hooks/useModalState';
 import { useIsLinux } from '@/hooks/usePlatform';
 import { useMemo } from 'react';
 import { useRouter } from '@/lib/vite-shims/navigation';
+import { RecordingCard } from '@/components/recording/RecordingCard';
 
 /**
  * TranscriptPanel Component
@@ -55,13 +54,13 @@ export function TranscriptPanel({
     })),
     [transcripts]
   );
-  const showReadyState = !isRecording && !isChecking && segments.length === 0 && !error;
+  const showRecordingCard = !isChecking && segments.length === 0 && !error;
   const selectedLanguageName = LANGUAGES.find(language => language.code === selectedLanguage)?.name || selectedLanguage;
 
   return (
-    <div ref={transcriptContainerRef} className="w-full border-r border-gray-200 bg-white flex flex-col overflow-y-auto">
+    <div ref={transcriptContainerRef} className="flex h-screen w-full flex-col overflow-y-auto bg-[var(--pt-bg-primary)]">
       {/* Title area - Sticky header */}
-      <div className="sticky top-0 z-10 bg-white p-4 border-gray-200">
+      <div className="sticky top-0 z-10 bg-[var(--pt-bg-primary)] p-4">
         <div className="flex flex-col space-y-3">
           <div className="flex  flex-col space-y-2">
             <div className="flex justify-center  items-center space-x-2">
@@ -131,84 +130,34 @@ export function TranscriptPanel({
         </div>
       )}
 
-      {showReadyState && (
-        <div className="flex flex-1 items-center justify-center px-6 py-16">
-          <div className="w-full max-w-xl rounded-2xl border border-stone-100 bg-white px-8 py-8 shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-stone-950 text-white shadow-sm">
-                <Mic className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-semibold tracking-normal text-stone-950">{t('home.ready')}</h1>
-                <p className="mt-2 max-w-md text-sm leading-6 text-stone-500">{t('home.readyDescription')}</p>
-              </div>
-            </div>
-
-            <div className="mt-8 grid gap-5">
-              <div className="grid gap-2">
-                <Label className="text-xs font-medium uppercase tracking-[0.14em] text-stone-400">
-                  {t('home.meetingLanguage')}
-                </Label>
-                <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                  <SelectTrigger className="h-11 rounded-xl border-stone-200 bg-stone-50/70 px-4 shadow-none">
-                    <SelectValue placeholder={selectedLanguageName} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LANGUAGES.map(language => (
-                      <SelectItem key={language.code} value={language.code}>
-                        {language.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label className="text-xs font-medium uppercase tracking-[0.14em] text-stone-400">
-                  {t('home.protocolTemplate')}
-                </Label>
-                <Select
-                  value={templates.selectedTemplate}
-                  onValueChange={(templateId) => {
-                    const template = templates.availableTemplates.find(item => item.id === templateId);
-                    templates.handleTemplateSelection(templateId, template?.name || templateId);
-                  }}
-                  disabled={templates.availableTemplates.length === 0}
-                >
-                  <SelectTrigger className="h-11 rounded-xl border-stone-200 bg-stone-50/70 px-4 shadow-none">
-                    <SelectValue placeholder={t('home.protocolTemplate')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.availableTemplates.map(template => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push('/settings')}
-                className="h-10 justify-center gap-2 rounded-xl px-4 text-stone-600 hover:bg-stone-100 hover:text-stone-950"
-              >
-                <Settings className="h-4 w-4" />
-                {t('common.settings')}
-              </Button>
-              <Button
-                size="lg"
-                onClick={() => window.dispatchEvent(new CustomEvent('start-recording-from-sidebar'))}
-                className="h-12 justify-center gap-2 rounded-xl bg-stone-950 px-6 text-white shadow-sm hover:bg-stone-800 sm:min-w-48"
-              >
-                <Mic className="h-4 w-4" />
-                {t('home.startRecording')}
-              </Button>
-            </div>
-          </div>
+      {showRecordingCard && (
+        <div className="flex flex-1 items-center justify-center px-8 py-16">
+          <RecordingCard
+            title={isRecording ? t('sidebar.recordingInProgress') : t('home.ready')}
+            description={isRecording ? 'Protocolito is listening and transcribing this meeting.' : t('home.readyDescription')}
+            languageLabel={t('home.meetingLanguage')}
+            languageValue={selectedLanguage}
+            languagePlaceholder={selectedLanguageName}
+            languageOptions={LANGUAGES.map(language => ({ value: language.code, label: language.name }))}
+            templateLabel={t('home.protocolTemplate')}
+            templateValue={templates.selectedTemplate}
+            templatePlaceholder={t('home.protocolTemplate')}
+            templateOptions={templates.availableTemplates.map(template => ({ value: template.id, label: template.name }))}
+            templateDisabled={templates.availableTemplates.length === 0}
+            isRecording={isRecording}
+            startLabel={t('home.startRecording')}
+            stopLabel={t('recording.stop')}
+            settingsLabel={t('common.settings')}
+            onLanguageChange={setSelectedLanguage}
+            onTemplateChange={(templateId) => {
+              const template = templates.availableTemplates.find(item => item.id === templateId);
+              templates.handleTemplateSelection(templateId, template?.name || templateId);
+            }}
+            onRecordClick={() => {
+              window.dispatchEvent(new CustomEvent(isRecording ? 'stop-recording-from-card' : 'start-recording-from-sidebar'));
+            }}
+            onSettingsClick={() => router.push('/settings')}
+          />
         </div>
       )}
 

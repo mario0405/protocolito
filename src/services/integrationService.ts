@@ -31,6 +31,7 @@ export interface IntegrationPayload {
 }
 
 const STORAGE_KEY = 'protocolito.integrations.v1';
+const ACTIVE_SEND_PROVIDERS = new Set<IntegrationProvider>(['notion', 'asana']);
 
 export const INTEGRATION_DEFAULTS: IntegrationConfig[] = [
   { provider: 'google-calendar', enabled: false, target: '', autoSendSummary: false },
@@ -69,6 +70,9 @@ export function loadIntegrations(): IntegrationConfig[] {
     return INTEGRATION_DEFAULTS.map((base) => ({
       ...base,
       ...(saved.find((item) => item.provider === base.provider) || {}),
+      enabled: base.provider === 'google-calendar' || ACTIVE_SEND_PROVIDERS.has(base.provider)
+        ? Boolean((saved.find((item) => item.provider === base.provider) || base).enabled)
+        : false,
     }));
   } catch {
     return INTEGRATION_DEFAULTS;
@@ -231,7 +235,7 @@ async function sendToNotion(config: IntegrationConfig, payload: IntegrationPaylo
 }
 
 export async function sendSummaryToIntegrations(payload: IntegrationPayload, configs = loadIntegrations()) {
-  const enabled = configs.filter((config) => config.enabled);
+  const enabled = configs.filter((config) => config.enabled && ACTIVE_SEND_PROVIDERS.has(config.provider));
   const results: Array<{ provider: IntegrationProvider; status: 'sent' | 'copied' | 'skipped' | 'error'; message?: string }> = [];
   const markdownPackage = formatIntegrationPackage(payload);
 

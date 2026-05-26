@@ -2,6 +2,7 @@ export interface SidebarItem {
   id: string;
   title: string;
   type: 'folder' | 'file';
+  dateLabel?: string;
   children?: SidebarItem[];
 }
 

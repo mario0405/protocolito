@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, Home, Trash2, Mic, Square, Plus, Pencil, NotebookPen, SearchIcon, X, Upload } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ChevronRight, Settings, ChevronRightCircle, Calendar, Home, Mic, Square, NotebookPen, SearchIcon, X, Upload } from 'lucide-react';
 import { useRouter, usePathname } from '@/lib/vite-shims/navigation';
 import { useSidebar } from './SidebarProvider';
 import type { CurrentMeeting } from '@/components/Sidebar/SidebarProvider';
@@ -13,6 +14,7 @@ import { toast } from 'sonner';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
 import { useImportDialog } from '@/contexts/ImportDialogContext';
 import { useConfig } from '@/contexts/ConfigContext';
+import { cn } from '@/lib/utils';
 
 import {
   Dialog,
@@ -25,7 +27,9 @@ import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import Logo from '../Logo';
 import Info from '../Info';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group';
-import { ensureFolderExpanded, filterSidebarItems, SidebarItem } from './sidebarUtils';
+import { ensureFolderExpanded, filterSidebarItems, type SidebarItem as SidebarTreeItem } from './sidebarUtils';
+import { SidebarItem } from './SidebarItem';
+import { MeetingNoteRow } from './MeetingNoteRow';
 
 const Sidebar: React.FC = () => {
   const router = useRouter();
@@ -232,115 +236,58 @@ const Sidebar: React.FC = () => {
 
     return (
       <TooltipProvider>
-        <div className="flex flex-col items-center space-y-4 mt-4">
+        <div className="flex flex-col items-center gap-4 pt-4">
           <Logo isCollapsed={isCollapsed} />
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => router.push('/')}
-                aria-label={t('common.home')}
-                title={t('common.home')}
-                className={`p-2 rounded-lg transition-colors duration-150 ${isHomePage ? 'bg-gray-100' : 'hover:bg-gray-100'
-                  }`}
-              >
-                <Home className="w-5 h-5 text-gray-600" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>{t('common.home')}</p>
-            </TooltipContent>
-          </Tooltip>
+          <SidebarItem
+            collapsed
+            icon={Home}
+            label={t('common.home')}
+            active={isHomePage}
+            onClick={() => router.push('/')}
+          />
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={handleRecordingToggle}
-                disabled={isRecording}
-                aria-label={isRecording ? t('sidebar.recordingInProgress') : t('home.startRecording')}
-                title={isRecording ? t('sidebar.recordingInProgress') : t('home.startRecording')}
-                className={`p-2 ${isRecording ? 'bg-red-500 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'} rounded-full transition-colors duration-150 shadow-sm`}
-              >
-                {isRecording ? (
-                  <Square className="w-5 h-5 text-white" />
-                ) : (
-                  <Mic className="w-5 h-5 text-white" />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>{isRecording ? t('sidebar.recordingInProgress') : t('home.startRecording')}</p>
-            </TooltipContent>
-          </Tooltip>
+          <SidebarItem
+            collapsed
+            prominent
+            icon={isRecording ? Square : Mic}
+            label={isRecording ? t('sidebar.recordingInProgress') : t('home.startRecording')}
+            disabled={isRecording}
+            onClick={handleRecordingToggle}
+          />
 
           {betaFeatures.importAndRetranscribe && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => openImportDialog()}
-                  aria-label={t('sidebar.importAudio')}
-                  title={t('sidebar.importAudio')}
-                  className="p-2 rounded-lg transition-colors duration-150 hover:bg-blue-100 bg-blue-50"
-                >
-                  <Upload className="w-5 h-5 text-blue-600" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>{t('sidebar.importAudio')}</p>
-              </TooltipContent>
-            </Tooltip>
+            <SidebarItem
+              collapsed
+              icon={Upload}
+              label={t('sidebar.importAudio')}
+              onClick={() => openImportDialog()}
+            />
           )}
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => router.push('/search')}
-                aria-label={t('common.search')}
-                title={t('common.search')}
-                className={`p-2 rounded-lg transition-colors duration-150 ${isSearchPage ? 'bg-gray-100' : 'hover:bg-gray-100'
-                  }`}
-              >
-                <SearchIcon className="w-5 h-5 text-gray-600" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>{t('common.search')}</p>
-            </TooltipContent>
-          </Tooltip>
+          <SidebarItem
+            collapsed
+            icon={SearchIcon}
+            label={t('common.search')}
+            active={isSearchPage}
+            onClick={() => router.push('/search')}
+          />
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={openMeetingNotes}
-                aria-label={t('sidebar.meetingNotes')}
-                title={t('sidebar.meetingNotes')}
-                className={`p-2 rounded-lg transition-colors duration-150 ${isMeetingPage ? 'bg-gray-100' : 'hover:bg-gray-100'
-                  }`}
-              >
-                <NotebookPen className="w-5 h-5 text-gray-600" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>{t('sidebar.meetingNotes')}</p>
-            </TooltipContent>
-          </Tooltip>
+          <SidebarItem
+            collapsed
+            icon={NotebookPen}
+            label={t('sidebar.meetingNotes')}
+            active={isMeetingPage}
+            onClick={openMeetingNotes}
+          />
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => router.push('/settings')}
-                aria-label={t('common.settings')}
-                title={t('common.settings')}
-                className={`p-2 rounded-lg transition-colors duration-150 ${isSettingsPage ? 'bg-gray-100' : 'hover:bg-gray-100'
-                  }`}
-              >
-                <Settings className="w-5 h-5 text-gray-600" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>{t('common.settings')}</p>
-            </TooltipContent>
-          </Tooltip>
+          <SidebarItem
+            collapsed
+            icon={Settings}
+            label={t('common.settings')}
+            active={isSettingsPage}
+            onClick={() => router.push('/settings')}
+          />
 
           <Info isCollapsed={isCollapsed} />
         </div>
@@ -354,7 +301,7 @@ const Sidebar: React.FC = () => {
     return searchResults.find(result => result.id === itemId);
   };
 
-  const renderItem = (item: SidebarItem, depth = 0) => {
+  const renderItem = (item: SidebarTreeItem, depth = 0) => {
     const isExpanded = expandedFolders.has(item.id);
     const paddingLeft = `${depth * 12 + 12}px`;
     const isActive = item.type === 'file' && currentMeeting?.id === item.id;
@@ -366,29 +313,49 @@ const Sidebar: React.FC = () => {
 
     if (isCollapsed) return null;
 
-    return (
-      <div key={item.id}>
-        <div
-          className={`flex items-center transition-all duration-150 group ${item.type === 'folder' && depth === 0
-            ? 'p-3 text-lg font-semibold h-10 mx-3 mt-3 rounded-lg'
-            : `px-3 py-2 my-0.5 rounded-md text-sm ${isActive ? 'bg-blue-100 text-blue-700 font-medium' :
-              hasTranscriptMatch ? 'bg-yellow-50' : 'hover:bg-gray-50'
-            } cursor-pointer`
-            }`}
-          style={item.type === 'folder' && depth === 0 ? {} : { paddingLeft }}
-          onClick={() => {
-            if (item.type === 'folder') {
-              toggleFolder(item.id);
-            } else {
+    if (item.type !== 'folder') {
+      return (
+        <div key={item.id}>
+          <MeetingNoteRow
+            title={item.title}
+            active={isActive || hasTranscriptMatch}
+            isMeeting={isMeetingItem}
+            dateLabel={item.dateLabel}
+            depth={depth}
+            editLabel={t('sidebar.editMeetingTitle')}
+            deleteLabel={t('sidebar.deleteMeeting')}
+            onOpen={() => {
               setCurrentMeeting({ id: item.id, title: item.title });
               const basePath = item.id.startsWith('intro-call') ? '/' :
                 item.id.includes('-') ? `/meeting-details?id=${item.id}` : `/notes/${item.id}`;
               router.push(basePath);
-            }
-          }}
+            }}
+            onEdit={() => handleEditStart(item.id, item.title)}
+            onDelete={() => setDeleteModalState({ isOpen: true, itemId: item.id })}
+          />
+
+          {hasTranscriptMatch && (
+            <div className="ml-8 mt-1 rounded border border-yellow-200/20 bg-white/10 p-1.5 text-xs text-stone-400 line-clamp-2">
+              <span className="font-medium text-amber-300">{t('sidebar.match')}</span> {matchingResult.matchContext}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div key={item.id}>
+        <motion.div
+          layout
+          className={cn(
+            'group flex items-center transition-colors',
+            depth === 0
+              ? 'mx-3 mt-3 h-10 rounded-lg p-3 text-sm font-semibold text-stone-300'
+              : 'my-0.5 cursor-pointer rounded-lg px-3 py-2 text-sm text-stone-300 hover:bg-white/10 hover:text-white',
+          )}
+          style={depth === 0 ? {} : { paddingLeft }}
+          onClick={() => toggleFolder(item.id)}
         >
-          {item.type === 'folder' ? (
-            <>
               {item.id === 'meetings' ? (
                 <Calendar className="w-4 h-4 mr-2" />
               ) : item.id === 'notes' ? (
@@ -397,63 +364,15 @@ const Sidebar: React.FC = () => {
               <span className={depth === 0 ? "" : "font-medium"}>{item.title}</span>
               <div className="ml-auto">
                 {isExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                <ChevronDown className="h-4 w-4 text-stone-500" />
                 ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-500" />
+                <ChevronRight className="h-4 w-4 text-stone-500" />
                 )}
               </div>
               {searchQuery && item.id === 'meetings' && isSearching && (
                 <span className="ml-2 text-xs text-blue-500 animate-pulse">{t('sidebar.searching')}</span>
               )}
-            </>
-          ) : (
-            <div className="flex flex-col w-full">
-              <div className="flex items-center w-full">
-                {isMeetingItem ? (
-                  <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full mr-2 bg-gray-100">
-                    <File className="w-3.5 h-3.5 text-gray-600" />
-                  </div>
-                ) : (
-                  <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full mr-2 bg-blue-100">
-                    <Plus className="w-3.5 h-3.5 text-blue-600" />
-                  </div>
-                )}
-                <span className="flex-1 break-words">{item.title}</span>
-                {isMeetingItem && (
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditStart(item.id, item.title);
-                      }}
-                      className="hover:text-blue-600 p-1 rounded-md hover:bg-blue-50 flex-shrink-0"
-                      aria-label={t('sidebar.editMeetingTitle')}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteModalState({ isOpen: true, itemId: item.id });
-                      }}
-                      className="hover:text-red-600 p-1 rounded-md hover:bg-red-50 flex-shrink-0"
-                      aria-label={t('sidebar.deleteMeeting')}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Show transcript match snippet if available */}
-              {hasTranscriptMatch && (
-                <div className="mt-1 ml-8 text-xs text-gray-500 bg-yellow-50 p-1.5 rounded border border-yellow-100 line-clamp-2">
-                  <span className="font-medium text-yellow-600">{t('sidebar.match')}</span> {matchingResult.matchContext}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        </motion.div>
         {item.type === 'folder' && isExpanded && item.children && (
           <div className="ml-1">
             {item.children.map(child => renderItem(child, depth + 1))}
@@ -466,23 +385,22 @@ const Sidebar: React.FC = () => {
   return (
     <div className="fixed top-0 left-0 h-screen z-40">
       {/* Floating collapse button */}
-      <button
+      <motion.button
         onClick={toggleCollapse}
         aria-label={isCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         title={isCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-        className="absolute -right-6 top-20 z-50 p-1 bg-white hover:bg-gray-100 rounded-full shadow-lg border"
-        style={{ transform: 'translateX(50%)' }}
+        animate={{ rotate: isCollapsed ? 0 : 180 }}
+        transition={{ duration: 0.18, ease: 'easeInOut' }}
+        className="absolute -right-4 top-20 z-50 rounded-full border border-white/10 bg-[#1b1d24] p-1 text-white shadow-lg hover:bg-[#242733]"
       >
-        {isCollapsed ? (
-          <ChevronRightCircle className="w-6 h-6" />
-        ) : (
-          <ChevronLeftCircle className="w-6 h-6" />
-        )}
-      </button>
+        <ChevronRightCircle className="h-6 w-6" />
+      </motion.button>
 
-      <div
-        className={`h-screen bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'
-          }`}
+      <motion.div
+        layout
+        animate={{ width: isCollapsed ? 56 : 240 }}
+        transition={{ duration: 0.18, ease: 'easeInOut' }}
+        className="flex h-screen flex-col overflow-hidden border-r border-white/10 bg-[#17191f] text-stone-100"
       >
         {/*  Header with traffic light spacing */}
         <div className="flex-shrink-0 h-22 flex items-center">
@@ -492,8 +410,16 @@ const Sidebar: React.FC = () => {
 
 
           <div className="flex-1">
+            <AnimatePresence initial={false}>
             {!isCollapsed && (
-              <div className="p-3">
+              <motion.div
+                key="sidebar-expanded-header"
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8 }}
+                transition={{ duration: 0.16, ease: 'easeOut' }}
+                className="p-3"
+              >
                 <Logo isCollapsed={isCollapsed} />
 
                 <div className="relative mb-1">
@@ -515,8 +441,9 @@ const Sidebar: React.FC = () => {
                     }
                   </InputGroup>
                 </div>
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -532,7 +459,7 @@ const Sidebar: React.FC = () => {
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') router.push('/');
                 }}
-                className="p-3  text-lg font-semibold items-center hover:bg-gray-100 h-10   flex mx-3 mt-3 rounded-lg cursor-pointer"
+                className="mx-3 mt-3 flex h-10 cursor-pointer items-center rounded-lg p-3 text-sm font-medium text-stone-200 hover:bg-white/10"
               >
                 <Home className="w-4 h-4 mr-2" />
                 <span>{t('common.home')}</span>
@@ -546,7 +473,7 @@ const Sidebar: React.FC = () => {
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') router.push('/search');
                 }}
-                className={`p-3 text-lg font-semibold items-center hover:bg-gray-100 h-10 flex mx-3 mt-1 rounded-lg cursor-pointer ${pathname === '/search' ? 'bg-gray-100' : ''}`}
+                className={cn('mx-3 mt-1 flex h-10 cursor-pointer items-center rounded-lg p-3 text-sm font-medium text-stone-200 hover:bg-white/10', pathname === '/search' && 'bg-white/10 text-white')}
               >
                 <SearchIcon className="w-4 h-4 mr-2" />
                 <span>{t('common.search')}</span>
@@ -562,11 +489,9 @@ const Sidebar: React.FC = () => {
               <div className="flex-shrink-0">
                 {filteredSidebarItems.filter(item => item.type === 'folder').map(item => (
                   <div key={item.id}>
-                    <div
-                      className="flex items-center transition-all duration-150 p-3 text-lg font-semibold h-10 mx-3 mt-3 rounded-lg"
-                    >
-                      <NotebookPen className="w-4 h-4 mr-2 text-gray-600" />
-                      <span className="text-gray-700">{item.title}</span>
+                    <div className="mx-3 mt-3 flex h-10 items-center rounded-lg p-3 text-xs font-semibold uppercase tracking-[0.12em] text-stone-500">
+                      <NotebookPen className="mr-2 h-4 w-4 text-stone-500" />
+                      <span>{item.title}</span>
                       {searchQuery && item.id === 'meetings' && isSearching && (
                         <span className="ml-2 text-xs text-blue-500 animate-pulse">{t('sidebar.searching')}</span>
                       )}
@@ -582,9 +507,18 @@ const Sidebar: React.FC = () => {
                 {filteredSidebarItems
                   .filter(item => item.type === 'folder' && expandedFolders.has(item.id) && item.children)
                   .map(item => (
-                    <div key={`${item.id}-children`} className="mx-3">
+                    <motion.div
+                      key={`${item.id}-children`}
+                      className="mx-3"
+                      initial="hidden"
+                      animate="visible"
+                      variants={{
+                        visible: { transition: { staggerChildren: 0.025 } },
+                        hidden: {},
+                      }}
+                    >
                       {item.children!.map(child => renderItem(child, 1))}
-                    </div>
+                    </motion.div>
                   ))}
               </div>
             )}
@@ -594,12 +528,12 @@ const Sidebar: React.FC = () => {
         {/* Footer */}
         {!isCollapsed && (
 
-          <div className="flex-shrink-0 p-2 border-t border-gray-100">
+          <div className="flex-shrink-0 border-t border-white/10 p-2">
             <button
               onClick={handleRecordingToggle}
               disabled={isRecording}
               aria-label={isRecording ? t('sidebar.recordingInProgress') : t('home.startRecording')}
-              className={`w-full flex items-center justify-center px-3 py-2 text-sm font-medium text-white ${isRecording ? 'bg-red-300 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'} rounded-lg transition-colors shadow-sm`}
+              className={cn('flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-white transition-colors', isRecording ? 'bg-red-400 cursor-not-allowed' : 'bg-[var(--pt-brand)] hover:bg-[var(--pt-brand-strong)]')}
             >
               {isRecording ? (
                 <>
@@ -618,7 +552,7 @@ const Sidebar: React.FC = () => {
               <button
                 onClick={() => openImportDialog()}
                 aria-label={t('sidebar.importAudio')}
-                className="w-full flex items-center justify-center px-3 py-2 mt-1 text-sm font-medium text-gray-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors shadow-sm"
+              className="mt-1 flex w-full items-center justify-center rounded-lg bg-white/10 px-3 py-2 text-sm font-medium text-stone-200 transition-colors hover:bg-white/10"
               >
                 <Upload className="w-4 h-4 mr-2" />
                 <span>{t('sidebar.importAudio')}</span>
@@ -628,7 +562,7 @@ const Sidebar: React.FC = () => {
             <button
               onClick={() => router.push('/settings')}
               aria-label={t('common.settings')}
-              className="w-full flex items-center justify-center px-3 py-1.5 mt-1 mb-1 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors shadow-sm"
+              className="mb-1 mt-1 flex w-full items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium text-stone-300 transition-colors hover:bg-white/10 hover:text-white"
             >
               <Settings className="w-4 h-4 mr-2" />
               <span>{t('common.settings')}</span>
@@ -639,7 +573,7 @@ const Sidebar: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Confirmation Modal for Delete */}
       <ConfirmationModal

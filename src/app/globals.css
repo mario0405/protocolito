@@ -279,6 +279,15 @@
 
 @layer base {
   :root {
+    --pt-bg-primary: #f7f7f5;
+    --pt-bg-secondary: #ffffff;
+    --pt-bg-card: rgba(255, 255, 255, 0.78);
+    --pt-border: rgba(28, 25, 23, 0.10);
+    --pt-text-primary: #171717;
+    --pt-text-secondary: #57534e;
+    --pt-text-muted: #8b8680;
+    --pt-brand: #ef4444;
+    --pt-brand-strong: #dc2626;
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
@@ -307,6 +316,15 @@
   }
 
   .dark {
+    --pt-bg-primary: #101217;
+    --pt-bg-secondary: #171a22;
+    --pt-bg-card: rgba(23, 26, 34, 0.82);
+    --pt-border: rgba(255, 255, 255, 0.10);
+    --pt-text-primary: #f5f5f4;
+    --pt-text-secondary: #c9c7c3;
+    --pt-text-muted: #8f949f;
+    --pt-brand: #f05243;
+    --pt-brand-strong: #ff6454;
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
     --card: 0 0% 3.9%;

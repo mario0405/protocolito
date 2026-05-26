@@ -40,6 +40,12 @@ function eventReminderId(event: GoogleCalendarEvent) {
   return `${event.id}:${event.start || ''}`;
 }
 
+function hasMeetingAttendees(event: GoogleCalendarEvent) {
+  const attendees = event.attendees || [];
+  if (attendees.some((attendee) => !attendee.self && !attendee.organizer)) return true;
+  return attendees.length > 1;
+}
+
 function formatStartTime(startMs: number) {
   return new Date(startMs).toLocaleTimeString([], {
     hour: '2-digit',
@@ -112,7 +118,7 @@ export function CalendarMeetingReminder() {
         const upcoming = events
           .map((event) => ({ event, startMs: eventStartMs(event) }))
           .filter((item): item is { event: GoogleCalendarEvent; startMs: number } => item.startMs !== null)
-          .filter(({ event }) => event.attendees.length > 0)
+          .filter(({ event }) => hasMeetingAttendees(event))
           .filter(({ startMs }) => startMs >= now - PAST_GRACE_MS && startMs <= now + REMINDER_WINDOW_MS)
           .sort((a, b) => a.startMs - b.startMs);
 

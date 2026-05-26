@@ -16,7 +16,7 @@ export interface GoogleCalendarEvent {
   title: string;
   start: string | null;
   end: string | null;
-  attendees: Array<{ email: string; name: string; responseStatus: string }>;
+  attendees: Array<{ email: string; name: string; responseStatus: string; self?: boolean; organizer?: boolean }>;
   description: string;
   location: string;
   htmlLink: string;
