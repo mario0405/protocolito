@@ -8,6 +8,7 @@ import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useRecordingState, RecordingStatus } from '@/contexts/RecordingStateContext';
 import { storageService } from '@/services/storageService';
 import { transcriptService } from '@/services/transcriptService';
+import { enqueueOfflineRecording, waitForConnectivity } from '@/services/offlineQueueService';
 import Analytics from '@/lib/analytics';
 
 type SummaryStatus = 'idle' | 'processing' | 'summarizing' | 'regenerating' | 'completed' | 'error';
@@ -250,6 +251,29 @@ export function useRecordingStop(
         });
 
         try {
+          const isOnline = await waitForConnectivity(90000);
+          if (!isOnline) {
+            await enqueueOfflineRecording({
+              title: savedMeetingName || meetingTitle || 'Offline meeting',
+              transcripts: freshTranscripts,
+              folderPath,
+              templateId: localStorage.getItem(SUMMARY_TEMPLATE_STORAGE_KEY) || DEFAULT_SUMMARY_TEMPLATE_ID,
+            });
+
+            await markMeetingAsSaved();
+            sessionStorage.removeItem('last_recording_folder_path');
+            sessionStorage.removeItem('last_recording_meeting_name');
+            sessionStorage.removeItem('indexeddb_current_meeting_id');
+
+            setStatus(RecordingStatus.IDLE);
+            clearTranscripts();
+            toast.info('Recording queued for offline sync', {
+              description: 'No internet connection was available after waiting. The encrypted recording data will sync from Settings > Integrations when you are online.',
+              duration: 10000,
+            });
+            return;
+          }
+
           const responseData = await storageService.saveMeeting(
             savedMeetingName || meetingTitle || 'New Meeting',  // PREFER savedMeetingName (backend source)
             freshTranscripts,

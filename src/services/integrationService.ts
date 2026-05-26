@@ -3,10 +3,15 @@ import { Summary } from '@/types';
 export type IntegrationProvider =
   | 'notion'
   | 'asana'
+  | 'google-calendar'
   | 'google-docs'
-  | 'obsidian'
-  | 'markdown'
-  | 'webhook';
+  | 'slack'
+  | 'teams'
+  | 'trello'
+  | 'jira'
+  | 'monday'
+  | 'hubspot'
+  | 'salesforce';
 
 export interface IntegrationConfig {
   provider: IntegrationProvider;
@@ -28,21 +33,31 @@ export interface IntegrationPayload {
 const STORAGE_KEY = 'protocolito.integrations.v1';
 
 export const INTEGRATION_DEFAULTS: IntegrationConfig[] = [
+  { provider: 'google-calendar', enabled: false, target: '', autoSendSummary: false },
   { provider: 'notion', enabled: false, token: '', target: '', autoSendSummary: false },
   { provider: 'asana', enabled: false, token: '', target: '', autoSendSummary: false },
   { provider: 'google-docs', enabled: false, token: '', target: '', autoSendSummary: false },
-  { provider: 'obsidian', enabled: false, target: '', autoSendSummary: false },
-  { provider: 'markdown', enabled: false, target: '', autoSendSummary: false },
-  { provider: 'webhook', enabled: false, webhookUrl: '', autoSendSummary: false },
+  { provider: 'slack', enabled: false, token: '', target: '', autoSendSummary: false },
+  { provider: 'teams', enabled: false, token: '', target: '', autoSendSummary: false },
+  { provider: 'trello', enabled: false, token: '', target: '', autoSendSummary: false },
+  { provider: 'jira', enabled: false, token: '', target: '', autoSendSummary: false },
+  { provider: 'monday', enabled: false, token: '', target: '', autoSendSummary: false },
+  { provider: 'hubspot', enabled: false, token: '', target: '', autoSendSummary: false },
+  { provider: 'salesforce', enabled: false, token: '', target: '', autoSendSummary: false },
 ];
 
 export const INTEGRATION_LABELS: Record<IntegrationProvider, string> = {
+  'google-calendar': 'Google Calendar',
   notion: 'Notion',
   asana: 'Asana',
   'google-docs': 'Google Docs',
-  obsidian: 'Obsidian',
-  markdown: 'Markdown folder',
-  webhook: 'Webhook',
+  slack: 'Slack',
+  teams: 'Microsoft Teams',
+  trello: 'Trello',
+  jira: 'Jira',
+  monday: 'Monday.com',
+  hubspot: 'HubSpot',
+  salesforce: 'Salesforce',
 };
 
 export function loadIntegrations(): IntegrationConfig[] {
@@ -222,12 +237,6 @@ export async function sendSummaryToIntegrations(payload: IntegrationPayload, con
 
   for (const config of enabled) {
     try {
-      if (config.provider === 'webhook' && config.webhookUrl?.trim()) {
-        await postJson(config.webhookUrl.trim(), payload);
-        results.push({ provider: config.provider, status: 'sent' });
-        continue;
-      }
-
       if (config.provider === 'notion' && await sendToNotion(config, payload, markdownPackage)) {
         results.push({ provider: config.provider, status: 'sent' });
         continue;
@@ -250,7 +259,7 @@ export async function sendSummaryToIntegrations(payload: IntegrationPayload, con
       }
 
       await navigator.clipboard.writeText(markdownPackage);
-      results.push({ provider: config.provider, status: 'copied', message: 'Markdown copied for paste/import' });
+      results.push({ provider: config.provider, status: 'copied', message: 'Integration setup pending; Markdown copied for paste/import' });
     } catch (error) {
       results.push({
         provider: config.provider,
@@ -262,7 +271,7 @@ export async function sendSummaryToIntegrations(payload: IntegrationPayload, con
 
   if (enabled.length === 0) {
     await navigator.clipboard.writeText(markdownPackage);
-    results.push({ provider: 'markdown', status: 'copied', message: 'No integration enabled; Markdown copied' });
+    results.push({ provider: 'google-docs', status: 'copied', message: 'No integration enabled; Markdown copied' });
   }
 
   return results;

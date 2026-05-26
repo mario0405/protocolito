@@ -11,6 +11,8 @@ import type { TranscriptModelProps, TranscriptProvider } from '@/types/transcrip
 import { DEFAULT_PARAKEET_MODEL, DEFAULT_WHISPER_MODEL } from '@/constants/modelDefaults';
 import { MODEL_CONFIGS } from '@/lib/whisper';
 import { PARAKEET_MODEL_CONFIGS } from '@/lib/parakeet';
+import { modelHint } from '@/lib/modelHints';
+import { useConfig } from '@/contexts/ConfigContext';
 
 export type { TranscriptModelProps } from '@/types/transcriptConfig';
 
@@ -60,6 +62,7 @@ function parseLocalKey(value: string): Pick<LocalTranscriptionOption, 'provider'
 }
 
 export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelConfig, onModelSelect }: TranscriptSettingsProps) {
+  const { t } = useConfig();
   const [source, setSource] = useState<TranscriptionSource>(transcriptModelConfig.provider === 'infomaniak' ? 'infomaniak' : 'local');
   const [infomaniakModelName, setInfomaniakModelName] = useState(transcriptModelConfig.modelName || transcriptModelConfig.model || 'whisper-large-v3');
   const [infomaniakModels, setInfomaniakModels] = useState<string[]>([]);
@@ -111,7 +114,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
       onModelSelect?.();
     } catch (error) {
       console.error('Failed to save transcription settings:', error);
-      toast.error('Failed to save transcription settings');
+      toast.error(t('transcription.saveFailed'));
     }
   };
 
@@ -123,7 +126,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
       productId: null,
       modelName: null,
       apiKey: null,
-    }, 'Local transcription model saved');
+    }, t('transcription.savedLocal'));
   };
 
   const handleSourceChange = async (nextSource: TranscriptionSource) => {
@@ -158,27 +161,27 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
       model: selectedModel,
       modelName: selectedModel,
       apiKey: null,
-    }, 'Infomaniak transcription model saved');
+    }, t('transcription.savedInfomaniak'));
   };
 
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Transcription Model Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('transcription.title')}</h3>
         <p className="text-sm text-gray-600 mb-6">
-          Choose whether meetings are transcribed locally on this laptop or through the company Infomaniak cloud setup.
+          {t('transcription.description')}
         </p>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Transcription source</Label>
+            <Label>{t('transcription.source')}</Label>
             <Select value={source} onValueChange={(value) => handleSourceChange(value as TranscriptionSource)}>
               <SelectTrigger>
-                <SelectValue placeholder="Select transcription source" />
+                <SelectValue placeholder={t('transcription.sourcePlaceholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="infomaniak">Infomaniak cloud</SelectItem>
-                <SelectItem value="local">Local open-source model</SelectItem>
+                <SelectItem value="infomaniak">{t('transcription.infomaniakCloud')}</SelectItem>
+                <SelectItem value="local">{t('transcription.localModelSource')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -186,7 +189,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
           {source === 'local' && (
             <div className="space-y-5">
               <div className="space-y-2">
-                <Label>Local transcription model</Label>
+                <Label>{t('transcription.localModel')}</Label>
                 <Select
                   value={selectedLocalKey}
                   onValueChange={(value) => {
@@ -195,12 +198,12 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select local transcription model" />
+                    <SelectValue placeholder={t('transcription.localModelPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {LOCAL_TRANSCRIPTION_MODELS.map((option) => (
                       <SelectItem key={localKey(option.provider, option.model)} value={localKey(option.provider, option.model)}>
-                        {option.label}
+                        {option.label} - {modelHint(option.model, t)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -210,7 +213,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
               {transcriptModelConfig.provider === 'parakeet' ? (
                 <div>
                   <p className="mb-3 text-xs text-amber-700">
-                    Parakeet is fast for general dictation, but Whisper is recommended for Swiss German meetings.
+                    {t('transcription.parakeetWarning')}
                   </p>
                   <ParakeetModelManager
                     selectedModel={transcriptModelConfig.model}
@@ -221,7 +224,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
               ) : (
                 <div>
                   <p className="mb-3 text-xs text-stone-600">
-                    Recommended for Swiss German meetings: Whisper large-v3-turbo or large-v3 with the app language set to Swiss German / German (CH).
+                    {t('transcription.whisperRecommendation')}
                   </p>
                   <ModelManager
                     selectedModel={transcriptModelConfig.model}
@@ -235,13 +238,13 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
 
           {source === 'infomaniak' && (
             <InfomaniakModelSelector
-              description="Company credentials stay on the Protocolito server. Users only choose the allowed Infomaniak transcription model."
-              label="Transcription model"
+              description={t('transcription.cloudDescription')}
+              label={t('transcription.model')}
               models={infomaniakModels}
               value={infomaniakModelName}
               configured={infomaniakConfigured}
-              placeholder="Configured Infomaniak transcription model"
-              actionLabel="Save Infomaniak transcription model"
+              placeholder={t('transcription.modelPlaceholder')}
+              actionLabel={t('transcription.saveInfomaniak')}
               onChange={(model) => {
                 setInfomaniakModelName(model);
                 setTranscriptModelConfig({

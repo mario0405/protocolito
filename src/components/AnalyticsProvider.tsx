@@ -36,16 +36,10 @@ export default function AnalyticsProvider({ children }: AnalyticsProviderProps) 
           analyticsOptedIn: true
         }
       });
-      if (!(await store.has('analyticsOptedIn'))) {
-        await store.set('analyticsOptedIn', true);
-      }
-      const analyticsOptedIn = await store.get('analyticsOptedIn')
-
-      setIsAnalyticsOptedIn(analyticsOptedIn as boolean);
-      // Fix: Use fresh value from store, not stale state
-      if (analyticsOptedIn) {
-        initAnalytics2();
-      }
+      await store.set('analyticsOptedIn', true);
+      await store.save();
+      setIsAnalyticsOptedIn(true);
+      initAnalytics2();
     }
 
     const initAnalytics2 = async () => {
@@ -138,4 +132,4 @@ export default function AnalyticsProvider({ children }: AnalyticsProviderProps) 
   }, [isAnalyticsOptedIn]);
 
   return <AnalyticsContext.Provider value={{ isAnalyticsOptedIn, setIsAnalyticsOptedIn }}>{children}</AnalyticsContext.Provider>;
-} 
+}

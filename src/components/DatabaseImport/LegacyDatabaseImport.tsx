@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Loader2, FolderOpen, Database, CheckCircle2, XCircle } from 'lucide-react';
 import { HomebrewDatabaseDetector } from './HomebrewDatabaseDetector';
+import { useConfig } from '@/contexts/ConfigContext';
 
 interface LegacyDatabaseImportProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface LegacyDatabaseImportProps {
 type ImportState = 'idle' | 'selecting' | 'detecting' | 'importing' | 'success' | 'error';
 
 export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImportProps) {
+  const { t } = useConfig();
   const [importState, setImportState] = useState<ImportState>('idle');
   const [detectedPath, setDetectedPath] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -42,7 +44,7 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
         setDetectedPath(dbPath);
         setImportState('idle');
       } else {
-        setErrorMessage('No database found at selected location. Please select the Protocolito folder, previous Meetily folder, backend folder, or the database file directly.');
+        setErrorMessage(t('legacyImport.notFound'));
         setDetectedPath(null);
         setImportState('error');
         setTimeout(() => setImportState('idle'), 3000);
@@ -66,7 +68,7 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
       });
 
       setImportState('success');
-      toast.success('Database imported successfully! Reloading...');
+      toast.success(t('legacyImport.imported'));
 
       // Wait 1 second for user to see success, then reload window to refresh all data
       setTimeout(() => {
@@ -76,7 +78,7 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
       console.error('Error importing database:', error);
       setErrorMessage(String(error));
       setImportState('error');
-      toast.error(`Import failed: ${error}`);
+      toast.error(t('legacyImport.importFailed').replace('{error}', String(error)));
       setTimeout(() => setImportState('idle'), 3000);
     }
   };
@@ -88,7 +90,7 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
       await invoke('initialize_fresh_database');
 
       setImportState('success');
-      toast.success('Database initialized successfully! Starting app...');
+      toast.success(t('legacyImport.initialized'));
 
       // Wait 1 second for user to see success, then reload window to start fresh
       setTimeout(() => {
@@ -98,7 +100,7 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
       console.error('Error initializing database:', error);
       setErrorMessage(String(error));
       setImportState('error');
-      toast.error(`Initialization failed: ${error}`);
+      toast.error(t('legacyImport.initializationFailed').replace('{error}', String(error)));
       setTimeout(() => setImportState('idle'), 3000);
     }
   };
@@ -119,9 +121,9 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-[600px]" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle className="text-2xl">Welcome to Protocolito</DialogTitle>
+          <DialogTitle className="text-2xl">{t('legacyImport.title')}</DialogTitle>
           <DialogDescription className="text-base pt-2">
-            Do you have data from a previous Protocolito or Meetily installation?
+            {t('legacyImport.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -135,7 +137,7 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
           {/* Browse Section */}
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
-              Select your previous Protocolito or Meetily folder, backend directory, or database file:
+              {t('legacyImport.selectPrevious')}
             </p>
 
             <button
@@ -146,12 +148,12 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
               {importState === 'selecting' || importState === 'detecting' ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>{importState === 'selecting' ? 'Selecting...' : 'Detecting database...'}</span>
+                  <span>{importState === 'selecting' ? t('legacyImport.selecting') : t('legacyImport.detecting')}</span>
                 </>
               ) : (
                 <>
                   <FolderOpen className="h-5 w-5" />
-                  <span>Browse for Database</span>
+                  <span>{t('legacyImport.browse')}</span>
                 </>
               )}
             </button>
@@ -163,7 +165,7 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-green-800">Database found!</p>
+                  <p className="text-sm font-medium text-green-800">{t('legacyImport.found')}</p>
                   <p className="text-xs text-green-700 mt-1 break-all">{detectedPath}</p>
                 </div>
               </div>
@@ -192,17 +194,17 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
               {importState === 'importing' ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>Importing...</span>
+                  <span>{t('legacyImport.importing')}</span>
                 </>
               ) : importState === 'success' ? (
                 <>
                   <CheckCircle2 className="h-5 w-5" />
-                  <span>Success!</span>
+                  <span>{t('legacyImport.success')}</span>
                 </>
               ) : (
                 <>
                   <Database className="h-5 w-5" />
-                  <span>Import Database</span>
+                  <span>{t('legacyImport.importDatabase')}</span>
                 </>
               )}
             </button>
@@ -212,7 +214,7 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
                 <div className="w-full border-t border-gray-300"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">or</span>
+                <span className="px-2 bg-white text-gray-500">{t('common.or')}</span>
               </div>
             </div>
 
@@ -221,7 +223,7 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
               disabled={isLoading}
               className="w-full px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
             >
-              Start Fresh (No Import)
+              {t('legacyImport.startFresh')}
             </button>
           </div>
         </div>

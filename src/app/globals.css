@@ -82,6 +82,189 @@
   animation: protocolito-loading 1.4s ease-in-out infinite;
 }
 
+/* ── Splash Screen ────────────────────────────────── */
+
+.splash-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f4; /* stone-100 */
+}
+
+.splash-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 420px;
+  max-width: 92vw;
+  padding: 48px 40px 36px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 24px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 8px 32px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(8px);
+  text-align: center;
+}
+
+.splash-logo-wrap {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.splash-logo-glow {
+  position: absolute;
+  inset: -16px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.14) 0%, transparent 70%);
+  animation: splash-pulse 2.4s ease-in-out infinite;
+}
+
+.splash-logo {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  border-radius: 24px;
+}
+
+.splash-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: #1c1917; /* stone-900 */
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.splash-subtitle {
+  margin: 6px 0 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #78716c; /* stone-500 */
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Waveform */
+.splash-waveform {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  margin: 24px 0 16px;
+}
+
+.splash-waveform-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: #ef4444; /* red-500 – logo coral accent */
+  opacity: 0.55;
+  animation: splash-wave 1.3s ease-in-out infinite alternate;
+}
+
+.splash-waveform-bar--static {
+  animation: none !important;
+  height: 10px;
+  opacity: 0.35;
+}
+
+/* Loading message */
+.splash-message-container {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.splash-message {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #a8a29e; /* stone-400 */
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Shimmer progress */
+.splash-progress {
+  width: 180px;
+  height: 3px;
+  border-radius: 3px;
+  background: #e7e5e4; /* stone-200 */
+  overflow: hidden;
+  position: relative;
+}
+
+.splash-progress-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #ef4444 40%,
+    #f87171 60%,
+    transparent 100%
+  );
+  animation: splash-shimmer 1.6s ease-in-out infinite;
+}
+
+/* Keyframes */
+@keyframes splash-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes splash-wave {
+  0% { height: 6px; }
+  25% { height: 18px; }
+  50% { height: 10px; }
+  75% { height: 24px; }
+  100% { height: 8px; }
+}
+
+@keyframes splash-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .splash-logo-glow { animation: none; opacity: 0.5; }
+  .splash-waveform-bar { animation: none !important; height: 10px; opacity: 0.35; }
+  .splash-progress-shimmer { animation: none; opacity: 0.4; transform: translateX(0); }
+}
+
+/* Dark mode splash */
+.dark .splash-backdrop {
+  background: #0f1115;
+}
+
+.dark .splash-card {
+  background: rgba(21, 24, 33, 0.92);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.dark .splash-title {
+  color: #f5f5f4;
+}
+
+.dark .splash-subtitle {
+  color: #a8a29e;
+}
+
+.dark .splash-message {
+  color: #78716c;
+}
+
+.dark .splash-progress {
+  background: #2b3040;
+}
+
+/* ── End Splash Screen ───────────────────────────── */
+
 .delay-75 {
   animation-delay: 75ms;
 }
@@ -202,6 +385,116 @@
   .custom-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: #d1d5db transparent;
+  }
+
+  .dark body {
+    background: #0f1115;
+    color: #f5f5f4;
+  }
+
+  .dark .bg-white,
+  .dark .bg-stone-50,
+  .dark .bg-gray-50 {
+    background-color: #151821 !important;
+  }
+
+  .dark .bg-gray-100,
+  .dark .bg-stone-100 {
+    background-color: #202431 !important;
+  }
+
+  .dark .bg-gray-200 {
+    background-color: #2b3040 !important;
+  }
+
+  .dark .border,
+  .dark .border-gray-100,
+  .dark .border-gray-200,
+  .dark .border-stone-200 {
+    border-color: #2b3040 !important;
+  }
+
+  .dark .text-stone-950,
+  .dark .text-gray-900,
+  .dark .text-stone-900,
+  .dark .text-gray-800,
+  .dark .text-stone-800,
+  .dark .text-gray-700,
+  .dark .text-stone-700 {
+    color: #f5f5f4 !important;
+  }
+
+  .dark .text-gray-600,
+  .dark .text-stone-600,
+  .dark .text-gray-500,
+  .dark .text-stone-500 {
+    color: #b8bfcc !important;
+  }
+
+  .dark input,
+  .dark textarea,
+  .dark select {
+    background-color: #0f1115 !important;
+    color: #f5f5f4 !important;
+    border-color: #343a4a !important;
+  }
+
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: #7f8797 !important;
+  }
+
+  .dark .shadow-sm,
+  .dark .shadow-lg,
+  .dark .shadow-xl {
+    box-shadow: none !important;
+  }
+
+  .dark .hover\:bg-gray-50:hover,
+  .dark .hover\:bg-gray-100:hover,
+  .dark .hover\:bg-stone-100:hover {
+    background-color: #232838 !important;
+  }
+
+  .dark .bg-blue-50,
+  .dark .bg-emerald-50,
+  .dark .bg-orange-50,
+  .dark .bg-yellow-50,
+  .dark .bg-amber-50 {
+    background-color: rgba(249, 115, 22, 0.1) !important;
+  }
+
+  .dark .bg-emerald-50 {
+    background-color: #151821 !important;
+  }
+
+  .dark .text-blue-800,
+  .dark .text-blue-700,
+  .dark .text-blue-600,
+  .dark .text-blue-500,
+  .dark .text-emerald-950,
+  .dark .text-emerald-900,
+  .dark .text-emerald-800,
+  .dark .text-emerald-700,
+  .dark .text-emerald-600,
+  .dark .text-emerald-500,
+  .dark .text-orange-900,
+  .dark .text-orange-800,
+  .dark .text-orange-700,
+  .dark .text-orange-600,
+  .dark .text-yellow-900,
+  .dark .text-yellow-800,
+  .dark .text-yellow-700,
+  .dark .text-amber-900,
+  .dark .text-amber-800,
+  .dark .text-amber-700 {
+    color: #f5f5f4 !important;
+  }
+
+  .dark .text-red-800,
+  .dark .text-red-700,
+  .dark .text-red-600 {
+    color: #fecaca !important;
   }
 
   /* BlockNote Editor - Override fixed dimensions for responsive layout */

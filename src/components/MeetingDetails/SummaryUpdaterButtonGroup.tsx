@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Copy, Save, Loader2, Send } from 'lucide-react';
 import Analytics from '@/lib/analytics';
+import { useConfig } from '@/contexts/ConfigContext';
 
 interface SummaryUpdaterButtonGroupProps {
   isSaving: boolean;
@@ -26,6 +27,8 @@ export function SummaryUpdaterButtonGroup({
   onOpenFolder,
   hasSummary
 }: SummaryUpdaterButtonGroupProps) {
+  const { t } = useConfig();
+
   return (
     <ButtonGroup>
       {/* Save button */}
@@ -33,7 +36,7 @@ export function SummaryUpdaterButtonGroup({
         variant="outline"
         size="sm"
         className={`${isDirty ? 'bg-green-200' : ""}`}
-        title={isSaving ? "Saving" : "Save Changes"}
+        title={isSaving ? t('meeting.saving') : t('meeting.saveChanges')}
         onClick={() => {
           Analytics.trackButtonClick('save_changes', 'meeting_details');
           onSave();
@@ -43,12 +46,12 @@ export function SummaryUpdaterButtonGroup({
         {isSaving ? (
           <>
             <Loader2 className="animate-spin" />
-            <span className="hidden lg:inline">Saving...</span>
+            <span className="hidden lg:inline">{t('meeting.saving')}</span>
           </>
         ) : (
           <>
             <Save />
-            <span className="hidden lg:inline">Save</span>
+            <span className="hidden lg:inline">{t('common.save')}</span>
           </>
         )}
       </Button>
@@ -57,7 +60,7 @@ export function SummaryUpdaterButtonGroup({
       <Button
         variant="outline"
         size="sm"
-        title="Copy Summary"
+        title={t('meeting.copySummary')}
         onClick={() => {
           Analytics.trackButtonClick('copy_summary', 'meeting_details');
           onCopy();
@@ -66,13 +69,13 @@ export function SummaryUpdaterButtonGroup({
         className="cursor-pointer"
       >
         <Copy />
-        <span className="hidden lg:inline">Copy</span>
+        <span className="hidden lg:inline">{t('common.copy')}</span>
       </Button>
 
       <Button
         variant="outline"
         size="sm"
-        title="Send to integrations"
+        title={t('meeting.sendToIntegrations')}
         onClick={() => {
           Analytics.trackButtonClick('send_summary_to_integrations', 'meeting_details');
           onSendToIntegrations();
@@ -81,7 +84,7 @@ export function SummaryUpdaterButtonGroup({
         className="cursor-pointer"
       >
         <Send />
-        <span className="hidden lg:inline">Send</span>
+        <span className="hidden lg:inline">{t('common.send')}</span>
       </Button>
 
       {/* Find button */}

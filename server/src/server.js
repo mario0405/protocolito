@@ -14,6 +14,11 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 const port = Number(process.env.PORT || 8080);
 const usageDir = path.resolve(process.env.USAGE_DIR || './data');
 const usageFile = path.join(usageDir, 'usage.jsonl');
+const rateLimitWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
+const rateLimitMaxRequests = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 120);
+const maxSummaryChars = Number(process.env.MAX_SUMMARY_CHARS || 200_000);
+const maxPromptChars = Number(process.env.MAX_PROMPT_CHARS || 8_000);
+const rateLimitBuckets = new Map();
 
 function splitCsv(value) {
   return String(value || '')
@@ -66,6 +71,40 @@ function constantTimeEqual(a, b) {
   return crypto.timingSafeEqual(left, right);
 }
 
+function hashForLog(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex').slice(0, 16);
+}
+
+function rateLimitKey(req) {
+  const key = String(req.header('x-protocolito-key') || '').trim();
+  return key ? `key:${hashForLog(key)}` : `ip:${req.ip || req.socket?.remoteAddress || 'unknown'}`;
+}
+
+function rateLimit(req, res, next) {
+  if (!rateLimitWindowMs || !rateLimitMaxRequests) {
+    next();
+    return;
+  }
+
+  const now = Date.now();
+  const bucketKey = rateLimitKey(req);
+  const bucket = rateLimitBuckets.get(bucketKey);
+  if (!bucket || bucket.resetAt <= now) {
+    rateLimitBuckets.set(bucketKey, { count: 1, resetAt: now + rateLimitWindowMs });
+    next();
+    return;
+  }
+
+  bucket.count += 1;
+  if (bucket.count > rateLimitMaxRequests) {
+    res.set('Retry-After', String(Math.ceil((bucket.resetAt - now) / 1000)));
+    res.status(429).json({ error: 'Too many requests. Try again shortly.' });
+    return;
+  }
+
+  next();
+}
+
 function authenticate(req, res, next) {
   const key = String(req.header('x-protocolito-key') || '').trim();
   const company = loadCompanies().find((item) => item.enabled !== false && constantTimeEqual(item.apiKey, key));
@@ -102,6 +141,90 @@ function appendUsage(event) {
   fs.appendFileSync(usageFile, `${JSON.stringify({ ...event, at: new Date().toISOString() })}\n`);
 }
 
+function currentMonthPrefix() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function monthlyUsageCount(companyId, type, subjectId = null) {
+  const month = currentMonthPrefix();
+  return readUsageEvents(1000).filter((event) => (
+    event.companyId === companyId
+    && event.type === type
+    && event.ok !== false
+    && (!subjectId || event.userId === subjectId || event.deviceId === subjectId)
+    && String(event.at || '').startsWith(month)
+  )).length;
+}
+
+function enforceMonthlyLimit(company, type, subjectId = null) {
+  const limitKey = type === 'summary' ? 'monthlySummaryLimit' : 'monthlyTranscriptionLimit';
+  const limit = Number(company?.[limitKey] ?? 0);
+  if (Number.isFinite(limit) && limit > 0) {
+    const used = monthlyUsageCount(company.id, type);
+    if (used >= limit) {
+      throw Object.assign(new Error(`Monthly ${type} limit reached.`), {
+        statusCode: 429,
+        usageType: type,
+        monthlyLimit: limit,
+        monthlyUsed: used,
+      });
+    }
+  }
+
+  const userLimitKey = type === 'summary' ? 'monthlyUserSummaryLimit' : 'monthlyUserTranscriptionLimit';
+  const userLimit = Number(company?.[userLimitKey] ?? 0);
+  if (subjectId && Number.isFinite(userLimit) && userLimit > 0) {
+    const userUsed = monthlyUsageCount(company.id, type, subjectId);
+    if (userUsed >= userLimit) {
+      throw Object.assign(new Error(`Monthly ${type} limit reached for this device.`), {
+        statusCode: 429,
+        usageType: type,
+        monthlyLimit: userLimit,
+        monthlyUsed: userUsed,
+        subjectId,
+      });
+    }
+  }
+}
+
+function usageSubject(body = {}) {
+  return String(body.userId || body.deviceId || '').trim() || null;
+}
+
+function appendLimitMetadata(event, error) {
+  if (!error) return event;
+  return {
+    ...event,
+    monthlyLimit: error.monthlyLimit,
+    monthlyUsed: error.monthlyUsed,
+    subjectId: error.subjectId,
+  };
+}
+
+function limitErrorEvent(type, companyId, error) {
+  return appendLimitMetadata({
+    type,
+    ok: false,
+    companyId,
+    error: error.message,
+  }, error);
+}
+
+function throwIfLimitReached(company, type, subjectId) {
+  try {
+    enforceMonthlyLimit(company, type, subjectId);
+  } catch (error) {
+    appendUsage(limitErrorEvent(type, company.id, error));
+    throw error;
+  }
+}
+
+function enforceRequestLimit(req, type) {
+  const subjectId = usageSubject(req.body);
+  throwIfLimitReached(req.company, type, subjectId);
+  return subjectId;
+}
+
 function publicCompany(company) {
   if (!company) return null;
   return {
@@ -111,6 +234,8 @@ function publicCompany(company) {
     enabled: company.enabled !== false,
     monthlySummaryLimit: company.monthlySummaryLimit ?? null,
     monthlyTranscriptionLimit: company.monthlyTranscriptionLimit ?? null,
+    monthlyUserSummaryLimit: company.monthlyUserSummaryLimit ?? null,
+    monthlyUserTranscriptionLimit: company.monthlyUserTranscriptionLimit ?? null,
     summaryModels: company.summaryModels || ownerConfig().summaryModels,
     transcriptionModels: company.transcriptionModels || ownerConfig().transcriptionModels,
   };
@@ -173,6 +298,7 @@ function asyncHandler(handler) {
 }
 
 app.use(express.json({ limit: '2mb' }));
+app.disable('x-powered-by');
 app.use(cors({
   origin(origin, callback) {
     const allowed = splitCsv(process.env.CORS_ORIGINS || '*');
@@ -180,6 +306,7 @@ app.use(cors({
     else callback(new Error('Origin not allowed.'));
   },
 }));
+app.use('/v1', rateLimit);
 
 app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'protocolito-cloud-proxy' });
@@ -214,12 +341,30 @@ app.post('/v1/summarize', authenticate, asyncHandler(async (req, res) => {
   const owner = requireOwnerConfig();
   const transcript = String(req.body?.text || '').trim();
   if (!transcript) {
+    appendUsage({
+      type: 'summary',
+      ok: false,
+      companyId: req.company.id,
+      error: 'missing_text',
+    });
     res.status(400).json({ error: 'Missing transcript text.' });
     return;
   }
+  if (transcript.length > maxSummaryChars) {
+    appendUsage({
+      type: 'summary',
+      ok: false,
+      companyId: req.company.id,
+      inputChars: transcript.length,
+      error: 'summary_too_large',
+    });
+    res.status(413).json({ error: 'Transcript is too large for one summary request.' });
+    return;
+  }
 
+  const subjectId = enforceRequestLimit(req, 'summary');
   const model = allowedModel(req.company, 'summary', req.body?.model);
-  const prompt = String(req.body?.prompt || 'Create a concise meeting protocol in Markdown with Summary, Decisions, Action Items, and Next Steps.');
+  const prompt = String(req.body?.prompt || 'Create a concise meeting protocol in Markdown with Summary, Decisions, Action Items, and Next Steps.').slice(0, maxPromptChars);
   const response = await fetch(chatEndpoint(owner.productId), {
     method: 'POST',
     headers: {
@@ -238,6 +383,15 @@ app.post('/v1/summarize', authenticate, asyncHandler(async (req, res) => {
 
   const body = await response.json().catch(async () => ({ raw: await response.text() }));
   if (!response.ok) {
+    appendUsage({
+      type: 'summary',
+      ok: false,
+      companyId: req.company.id,
+      model,
+      inputChars: transcript.length,
+      statusCode: response.status,
+      error: body.error?.message || body.raw || 'infomaniak_summary_failed',
+    });
     res.status(response.status).json({ error: body.error?.message || body.raw || 'Infomaniak summary failed.' });
     return;
   }
@@ -247,6 +401,8 @@ app.post('/v1/summarize', authenticate, asyncHandler(async (req, res) => {
     type: 'summary',
     companyId: req.company.id,
     userId: req.body?.userId || null,
+    deviceId: req.body?.deviceId || null,
+    subjectId,
     model,
     inputChars: transcript.length,
     outputChars: markdown.length,
@@ -258,10 +414,17 @@ app.post('/v1/summarize', authenticate, asyncHandler(async (req, res) => {
 app.post('/v1/transcribe', authenticate, upload.single('file'), asyncHandler(async (req, res) => {
   const owner = requireOwnerConfig();
   if (!req.file?.buffer?.length) {
+    appendUsage({
+      type: 'transcription',
+      ok: false,
+      companyId: req.company.id,
+      error: 'missing_audio_file',
+    });
     res.status(400).json({ error: 'Missing audio file.' });
     return;
   }
 
+  const subjectId = enforceRequestLimit(req, 'transcription');
   const model = allowedModel(req.company, 'transcription', req.body?.model);
   const form = new FormData();
   form.append('file', new Blob([req.file.buffer], { type: req.file.mimetype || 'audio/wav' }), req.file.originalname || 'recording.wav');
@@ -278,6 +441,15 @@ app.post('/v1/transcribe', authenticate, upload.single('file'), asyncHandler(asy
 
   const body = await response.json().catch(async () => ({ raw: await response.text() }));
   if (!response.ok) {
+    appendUsage({
+      type: 'transcription',
+      ok: false,
+      companyId: req.company.id,
+      model,
+      inputBytes: req.file.size,
+      statusCode: response.status,
+      error: body.error?.message || body.raw || 'infomaniak_transcription_failed',
+    });
     res.status(response.status).json({ error: body.error?.message || body.raw || 'Infomaniak transcription failed.' });
     return;
   }
@@ -287,6 +459,8 @@ app.post('/v1/transcribe', authenticate, upload.single('file'), asyncHandler(asy
     type: 'transcription',
     companyId: req.company.id,
     userId: req.body?.userId || null,
+    deviceId: req.body?.deviceId || null,
+    subjectId,
     model,
     inputBytes: req.file.size,
     outputChars: text.length,
@@ -307,6 +481,16 @@ app.get('/admin/usage', requireAdmin, (req, res) => {
 
 app.use((error, req, res, next) => {
   const status = error.statusCode || 500;
+  if (req.company && error.usageType) {
+    appendUsage({
+      type: error.usageType,
+      ok: false,
+      companyId: req.company.id,
+      error: error.message,
+      monthlyLimit: error.monthlyLimit,
+      monthlyUsed: error.monthlyUsed,
+    });
+  }
   res.status(status).json({ error: status >= 500 ? 'Server error.' : error.message });
 });
 

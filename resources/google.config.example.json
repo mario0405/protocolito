@@ -1,0 +1,5 @@
+{
+  "clientId": "your-google-oauth-client-id.apps.googleusercontent.com",
+  "clientSecret": "",
+  "realtimeWebhookUrl": "https://your-company-domain.com/google/calendar/webhook"
+}

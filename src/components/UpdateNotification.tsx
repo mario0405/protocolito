@@ -2,6 +2,7 @@ import React from 'react';
 import { Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { UpdateInfo } from '@/services/updateService';
+import { AppLanguage, translate } from '@/lib/i18n';
 
 let globalShowDialogCallback: (() => void) | null = null;
 
@@ -10,6 +11,9 @@ export function setUpdateDialogCallback(callback: () => void) {
 }
 
 export function showUpdateNotification(updateInfo: UpdateInfo, onUpdateClick?: () => void) {
+  const language = (typeof window !== 'undefined' ? window.localStorage.getItem('appLanguage') : null) as AppLanguage | null;
+  const t = (key: string) => translate(language || 'en', key);
+
   const handleClick = () => {
     if (onUpdateClick) {
       onUpdateClick();
@@ -23,9 +27,9 @@ export function showUpdateNotification(updateInfo: UpdateInfo, onUpdateClick?: (
       <div className="flex items-center gap-2">
         <Download className="h-4 w-4" />
         <div>
-          <p className="font-medium">Update Available</p>
+          <p className="font-medium">{t('update.availableTitle')}</p>
           <p className="text-sm text-muted-foreground">
-            Version {updateInfo.version} is now available
+            {t('update.versionAvailable').replace('{version}', String(updateInfo.version || ''))}
           </p>
         </div>
       </div>
@@ -36,7 +40,7 @@ export function showUpdateNotification(updateInfo: UpdateInfo, onUpdateClick?: (
         }}
         className="text-sm font-medium text-blue-600 hover:text-blue-700 underline"
       >
-        View Details
+        {t('update.viewDetails')}
       </button>
     </div>,
     {

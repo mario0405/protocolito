@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Download, RefreshCw, BadgeAlert, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfig } from '@/contexts/ConfigContext';
 
 interface ModelInfo {
   name: string;
@@ -34,6 +35,7 @@ interface BuiltInModelManagerProps {
 }
 
 export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInModelManagerProps) {
+  const { t } = useConfig();
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [hasFetched, setHasFetched] = useState<boolean>(false);
@@ -56,7 +58,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
       }
     } catch (error) {
       console.error('Failed to fetch built-in AI models:', error);
-      toast.error('Failed to load models');
+      toast.error(t('model.failedLoad'));
     } finally {
       setIsLoading(false);
       setHasFetched(true);
@@ -121,7 +123,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
           });
           // Refresh models list
           fetchModels();
-          toast.success(`Model ${model} downloaded successfully`);
+          toast.success(t('model.downloadedSuccessfully').replace('{model}', model));
         }
 
         // Handle cancelled status
@@ -210,7 +212,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
       }
 
       // For real errors, show toast and remove from downloading
-      toast.error(`Failed to download ${modelName}`);
+      toast.error(t('model.downloadFailed').replace('{model}', modelName));
 
       setDownloadingModels((prev) => {
         const newSet = new Set(prev);
@@ -226,7 +228,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
   const cancelDownload = async (modelName: string) => {
     try {
       await invoke('builtin_ai_cancel_download', { modelName });
-      toast.info(`Download of ${modelName} cancelled`);
+      toast.info(t('model.downloadCancelled').replace('{model}', modelName));
       setDownloadingModels((prev) => {
         const newSet = new Set(prev);
         newSet.delete(modelName);
@@ -240,11 +242,11 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
   const deleteModel = async (modelName: string) => {
     try {
       await invoke('builtin_ai_delete_model', { modelName });
-      toast.success(`Model ${modelName} deleted`);
+      toast.success(t('model.deleted').replace('{model}', modelName));
       fetchModels();
     } catch (error) {
       console.error('Failed to delete model:', error);
-      toast.error(`Failed to delete ${modelName}`);
+      toast.error(t('model.deleteFailed').replace('{model}', modelName));
     }
   };
 
@@ -253,7 +255,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
     return (
       <div className="text-center py-8 text-muted-foreground">
         <RefreshCw className="mx-auto h-8 w-8 animate-spin mb-2" />
-        Loading models...
+        {t('common.loadingModels')}
       </div>
     );
   }
@@ -263,7 +265,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
     return (
       <Alert>
         <AlertDescription>
-          No models found. Download a model to get started with Built-in AI.
+          {t('model.noModels')}
         </AlertDescription>
       </Alert>
     );
@@ -272,7 +274,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-bold">Built-in AI Models</h4>
+        <h4 className="text-sm font-bold">{t('model.builtInAiModels')}</h4>
       </div>
 
       <div className="grid gap-4">
@@ -312,11 +314,11 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
                       <>
                         <span className="text-xs text-green-600 font-medium flex items-center gap-1">
                           <span className="w-2 h-2 rounded-full bg-green-600"></span>
-                          Ready
+                          {t('model.ready')}
                         </span>
                         {selectedModel === model.name && (
                           <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded">
-                            Selected
+                            {t('model.selected')}
                           </span>
                         )}
                       </>
@@ -324,17 +326,17 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
                     {isCorrupted && (
                       <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded flex items-center gap-1">
                         <BadgeAlert className="w-3 h-3" />
-                        Corrupted
+                        {t('model.corrupted')}
                       </span>
                     )}
                     {isError && (
                       <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
-                        Error
+                        {t('model.error')}
                       </span>
                     )}
                     {isNotDownloaded && !modelIsDownloading && (
                       <span className="text-xs text-gray-600 font-medium">
-                        Not Downloaded
+                        {t('model.notDownloaded')}
                       </span>
                     )}
                   </div>
@@ -347,8 +349,8 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
                         {isError && typeof model.status === 'object' && 'Error' in model.status
                           ? (model.status as any).Error
                           : isCorrupted
-                          ? 'File is corrupted. Retry download or delete.'
-                          : 'An error occurred'}
+                          ? t('model.fileCorrupted')
+                          : t('model.errorOccurred')}
                       </p>
                     )}
                     <div className="text-xs text-gray-500">
@@ -370,7 +372,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
                       }}
                     >
                       <Download className="mr-2 h-4 w-4" />
-                      Download
+                      {t('model.download')}
                     </Button>
                   )}
 
@@ -385,7 +387,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
                         cancelDownload(model.name);
                       }}
                     >
-                      Cancel
+                      {t('common.cancel')}
                     </Button>
                   )}
 
@@ -401,7 +403,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
                       }}
                     >
                       <RefreshCw className="mr-2 h-4 w-4" />
-                      Retry
+                      {t('common.retry')}
                     </Button>
                   )}
 
@@ -417,7 +419,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
                         }}
                       >
                         <RefreshCw className="mr-2 h-4 w-4" />
-                        Retry
+                        {t('common.retry')}
                       </Button>
                       <Button
                         variant="outline"
@@ -428,7 +430,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
                         }}
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
+                        {t('common.delete')}
                       </Button>
                     </>
                   )}
@@ -441,7 +443,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
                         e.stopPropagation();
                         deleteModel(model.name);
                       }}
-                      title="Delete model"
+                      title={t('model.deleteTitle')}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -453,7 +455,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
               {modelIsDownloading && progress !== undefined && (
                 <div className="mt-3 pt-3 border-t border-gray-200">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-gray-900">Downloading...</span>
+                    <span className="text-sm font-medium text-gray-900">{t('model.downloading')}</span>
                     <span className="text-sm font-semibold text-gray-900">
                       {Math.round(progress)}%
                     </span>

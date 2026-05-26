@@ -128,7 +128,7 @@ export function LanguageSelection({
   provider = 'localWhisper'
 }: LanguageSelectionProps) {
   const [saving, setSaving] = useState(false);
-  const { setSelectedLanguage } = useConfig();
+  const { setSelectedLanguage, t } = useConfig();
 
   // Parakeet only supports auto-detection (doesn't support manual language selection)
   const isParakeet = provider === 'parakeet';
@@ -155,12 +155,12 @@ export function LanguageSelection({
 
       // Show success toast
       const languageName = selectedLang?.name || languageCode;
-      toast.success("Language preference saved", {
-        description: `Transcription language set to ${languageName}`
+      toast.success(t('transcription.languageSaved'), {
+        description: t('transcription.languageSetTo').replace('{language}', languageName)
       });
     } catch (error) {
       console.error('Failed to save language preference:', error);
-      toast.error("Failed to save language preference", {
+      toast.error(t('transcription.languageSaveFailed'), {
         description: error instanceof Error ? error.message : String(error)
       });
     } finally {
@@ -178,7 +178,7 @@ export function LanguageSelection({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Globe className="h-4 w-4 text-gray-600" />
-          <h4 className="text-sm font-medium text-gray-900">Transcription Language</h4>
+          <h4 className="text-sm font-medium text-gray-900">{t('transcription.language')}</h4>
         </div>
       </div>
 
@@ -200,31 +200,31 @@ export function LanguageSelection({
         {/* Parakeet language limitation warning */}
         {isParakeet && (
           <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
-            <p className="font-medium">Parakeet Language Support</p>
-            <p className="mt-1 text-xs">Parakeet currently only supports automatic language detection. Use Whisper with Swiss German / German (CH) for Swiss German meetings.</p>
+            <p className="font-medium">{t('transcription.parakeetLanguageSupport')}</p>
+            <p className="mt-1 text-xs">{t('transcription.parakeetLanguageDescription')}</p>
           </div>
         )}
 
         {/* Info text */}
         <div className="text-xs space-y-2 pt-2">
           <p className="text-gray-600">
-            <strong>Current:</strong> {selectedLanguageName}
+            <strong>{t('transcription.current')}</strong> {selectedLanguageName}
           </p>
           {selectedLanguage === 'auto' && (
             <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
-              <p className="font-medium">Auto Detect may produce incorrect results</p>
-              <p className="mt-1">For Swiss German meetings, select Swiss German / German (CH).</p>
+              <p className="font-medium">{t('transcription.autoMayBeWrong')}</p>
+              <p className="mt-1">{t('transcription.autoSwissGermanHint')}</p>
             </div>
           )}
           {selectedLanguage === 'auto-translate' && (
             <div className="p-2 bg-blue-50 border border-blue-200 rounded text-blue-800">
-              <p className="font-medium">Translation Mode Active</p>
-              <p className="mt-1">All audio will be automatically translated to English. Best for multilingual meetings where you need English output.</p>
+              <p className="font-medium">{t('transcription.translationModeActive')}</p>
+              <p className="mt-1">{t('transcription.translationModeDescription')}</p>
             </div>
           )}
           {selectedLanguage !== 'auto' && selectedLanguage !== 'auto-translate' && (
             <p className="text-gray-600">
-              Transcription will be optimized for <strong>{selectedLanguageName}</strong>
+              {t('transcription.optimizedFor').replace('{language}', selectedLanguageName)}
             </p>
           )}
         </div>

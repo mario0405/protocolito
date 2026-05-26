@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,22 +13,65 @@ import {
   saveIntegrations,
 } from '@/services/integrationService';
 import { toast } from 'sonner';
+import {
+  connectGoogleCalendar,
+  disconnectGoogleCalendar,
+  getGoogleCalendarStatus,
+  GoogleCalendarStatus,
+  saveGoogleCalendarConfig,
+  startGoogleCalendarWatch,
+  syncGoogleCalendar,
+} from '@/services/calendarService';
+import { useConfig } from '@/contexts/ConfigContext';
 
-const HELP_TEXT: Record<IntegrationConfig['provider'], string> = {
-  notion: 'Notion page or database ID plus an internal integration token. Creates a page for each summary.',
-  asana: 'Project GID plus a personal access token. Creates a task with the meeting protocol.',
-  'google-docs': 'Copy-ready for now. Use a webhook or automation bridge for direct document creation.',
-  obsidian: 'Copy-ready Markdown for vault paste/import.',
-  markdown: 'Copy-ready Markdown for any notes folder.',
-  webhook: 'POSTs Protocolito JSON to Make, Zapier, n8n, or a custom internal endpoint.',
+const HELP_KEYS: Record<IntegrationConfig['provider'], string> = {
+  'google-calendar': 'integrations.googleHelp',
+  notion: 'integrations.notionHelp',
+  asana: 'integrations.asanaHelp',
+  'google-docs': 'integrations.googleDocsHelp',
+  slack: 'integrations.slackHelp',
+  teams: 'integrations.teamsHelp',
+  trello: 'integrations.trelloHelp',
+  jira: 'integrations.jiraHelp',
+  monday: 'integrations.mondayHelp',
+  hubspot: 'integrations.crmHelp',
+  salesforce: 'integrations.crmHelp',
+};
+
+const ICON_URLS: Record<IntegrationConfig['provider'], string> = {
+  'google-calendar': 'https://cdn.simpleicons.org/googlecalendar/4285F4',
+  notion: 'https://cdn.simpleicons.org/notion/111111',
+  asana: 'https://cdn.simpleicons.org/asana/F06A6A',
+  'google-docs': 'https://cdn.simpleicons.org/googledocs/4285F4',
+  slack: 'https://a.slack-edge.com/80588/marketing/img/meta/favicon-32.png',
+  teams: 'https://teams.microsoft.com/favicon.ico',
+  trello: 'https://cdn.simpleicons.org/trello/0052CC',
+  jira: 'https://cdn.simpleicons.org/jira/0052CC',
+  monday: 'https://monday.com/favicon.ico',
+  hubspot: 'https://cdn.simpleicons.org/hubspot/FF7A59',
+  salesforce: 'https://www.salesforce.com/favicon.ico',
 };
 
 export function IntegrationsSettings() {
+  const { t } = useConfig();
   const [configs, setConfigs] = useState<IntegrationConfig[]>([]);
+  const [googleStatus, setGoogleStatus] = useState<GoogleCalendarStatus | null>(null);
+  const [googleClientId, setGoogleClientId] = useState('');
+  const [googleClientSecret, setGoogleClientSecret] = useState('');
+  const [googleWebhookUrl, setGoogleWebhookUrl] = useState('');
+  const [isGoogleBusy, setIsGoogleBusy] = useState(false);
+  const [showGoogleAdvanced, setShowGoogleAdvanced] = useState(false);
 
   useEffect(() => {
     setConfigs(loadIntegrations());
+    refreshGoogleStatus();
   }, []);
+
+  const refreshGoogleStatus = async () => {
+    const status = await getGoogleCalendarStatus();
+    setGoogleStatus(status);
+    setGoogleWebhookUrl(status.realtimeWebhookUrl || '');
+  };
 
   const updateConfig = (provider: IntegrationConfig['provider'], patch: Partial<IntegrationConfig>) => {
     setConfigs((prev) => prev.map((config) => (
@@ -38,100 +81,253 @@ export function IntegrationsSettings() {
 
   const handleSave = () => {
     saveIntegrations(configs);
-    toast.success('Integrations saved');
+    toast.success(t('integrations.saved'));
   };
 
+  const handleSaveGoogle = async () => {
+    setIsGoogleBusy(true);
+    try {
+      await saveGoogleCalendarConfig({
+        clientId: googleClientId,
+        clientSecret: googleClientSecret,
+        realtimeWebhookUrl: googleWebhookUrl,
+      });
+      await refreshGoogleStatus();
+      toast.success(t('integrations.googleSaved'));
+    } catch (error) {
+      toast.error(t('integrations.googleSaveFailed'), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIsGoogleBusy(false);
+    }
+  };
+
+  const handleConnectGoogle = async () => {
+    setIsGoogleBusy(true);
+    try {
+      await connectGoogleCalendar();
+      await refreshGoogleStatus();
+      updateConfig('google-calendar', { enabled: true });
+      toast.success(t('integrations.googleConnected'));
+    } catch (error) {
+      toast.error(t('integrations.googleConnectionFailed'), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIsGoogleBusy(false);
+    }
+  };
+
+  const handleSyncGoogle = async () => {
+    setIsGoogleBusy(true);
+    try {
+      const result = await syncGoogleCalendar();
+      await refreshGoogleStatus();
+      toast.success(t('integrations.googleSynced').replace('{count}', String(result.count)));
+    } catch (error) {
+      toast.error(t('integrations.googleSyncFailed'), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIsGoogleBusy(false);
+    }
+  };
+
+  const handleWatchGoogle = async () => {
+    setIsGoogleBusy(true);
+    try {
+      await startGoogleCalendarWatch();
+      toast.success(t('integrations.watchStarted'));
+    } catch (error) {
+      toast.error(t('integrations.watchFailed'), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIsGoogleBusy(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    setIsGoogleBusy(true);
+    try {
+      await disconnectGoogleCalendar();
+      await refreshGoogleStatus();
+      updateConfig('google-calendar', { enabled: false });
+      toast.success(t('integrations.googleDisconnected'));
+    } catch (error) {
+      toast.error(t('integrations.googleDisconnectFailed'), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIsGoogleBusy(false);
+    }
+  };
+
+  const googleConfig = configs.find((config) => config.provider === 'google-calendar');
+  const otherConfigs = configs.filter((config) => config.provider !== 'google-calendar');
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-stone-950">App integrations</h3>
+          <h3 className="text-lg font-semibold text-stone-950">{t('integrations.title')}</h3>
           <p className="mt-1 max-w-2xl text-sm text-stone-600">
-            Send finished protocols into the tools your team already uses. Keep direct tokens local, or route through a Swiss-hosted webhook.
+            {t('integrations.description')}
           </p>
         </div>
         <Button onClick={handleSave} className="bg-stone-950 hover:bg-stone-800">
           <Check className="h-4 w-4" />
-          Save
+          {t('common.save')}
         </Button>
       </div>
 
-      <div className="divide-y divide-stone-200 border-y border-stone-200">
-        {configs.map((config) => (
-          <section key={config.provider} className="grid gap-4 py-5 md:grid-cols-[220px_1fr]">
-            <div>
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={config.enabled}
-                  onCheckedChange={(checked) => updateConfig(config.provider, { enabled: checked })}
-                />
-                <h4 className="font-medium text-stone-950">{INTEGRATION_LABELS[config.provider]}</h4>
+      <section className="rounded-lg border border-orange-200 bg-orange-50/70 p-5 dark:border-orange-900/70 dark:bg-[#221914]">
+        <div className="grid gap-5 md:grid-cols-[220px_1fr]">
+          <div>
+            <div className="flex items-center gap-3">
+              <img src={ICON_URLS['google-calendar']} alt="" className="h-8 w-8 object-contain" />
+              <div>
+                <h4 className="font-semibold text-stone-950">Google Calendar</h4>
+                <p className="text-xs text-stone-600 dark:text-stone-300">{googleStatus?.connected ? t('integrations.connected') : t('integrations.notConnected')}</p>
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-stone-500">{HELP_TEXT[config.provider]}</p>
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-stone-600 dark:text-stone-300">
+              {t('integrations.googleDescription')}
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Switch
+                checked={Boolean(googleConfig?.enabled || googleStatus?.connected)}
+                onCheckedChange={(checked) => updateConfig('google-calendar', { enabled: checked })}
+              />
+              <Button type="button" disabled={isGoogleBusy || !googleStatus?.clientIdConfigured} onClick={handleConnectGoogle} className="bg-stone-950 hover:bg-stone-800">
+                <CalendarDays className="h-4 w-4" />
+                {googleStatus?.connected ? t('integrations.reconnectGoogle') : t('integrations.connectGoogle')}
+              </Button>
+              <Button type="button" variant="outline" disabled={isGoogleBusy || !googleStatus?.connected} onClick={handleSyncGoogle}>
+                <RefreshCw className="h-4 w-4" />
+                {t('integrations.syncNow')}
+              </Button>
+              <Button type="button" variant="outline" disabled={isGoogleBusy || !googleStatus?.connected} onClick={handleWatchGoogle}>
+                {t('integrations.realtimeWatch')}
+              </Button>
+              <Button type="button" variant="outline" disabled={isGoogleBusy || !googleStatus?.connected} onClick={handleDisconnectGoogle}>
+                {t('integrations.disconnect')}
+              </Button>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              {(config.provider === 'notion' || config.provider === 'asana') && (
-                <>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-stone-600">Access token</Label>
-                    <Input
-                      type="password"
-                      value={config.token || ''}
-                      onChange={(event) => updateConfig(config.provider, { token: event.target.value })}
-                      placeholder={config.provider === 'notion' ? 'secret_...' : 'Asana personal access token'}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-stone-600">
-                      {config.provider === 'notion' ? 'Page or database ID' : 'Project GID'}
-                    </Label>
-                    <Input
-                      value={config.target || ''}
-                      onChange={(event) => updateConfig(config.provider, { target: event.target.value })}
-                      placeholder={config.provider === 'notion' ? 'Notion page or database ID' : 'Asana project GID'}
-                    />
-                  </div>
-                </>
-              )}
+            <div className="text-xs text-stone-600 dark:text-stone-300">
+              {googleStatus?.lastSyncedAt ? `${t('integrations.lastSync').replace('{time}', new Date(googleStatus.lastSyncedAt).toLocaleString())} · ` : ''}
+              {googleStatus?.eventCount ? t('integrations.eventsSynced').replace('{count}', String(googleStatus.eventCount)) : t('integrations.noEventsSynced')}
+            </div>
 
-              {config.provider === 'webhook' && (
+            {!googleStatus?.clientIdConfigured && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                {t('integrations.googleOauthMissing')}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowGoogleAdvanced((value) => !value)}
+              className="flex items-center gap-2 text-xs font-medium text-stone-600 hover:text-stone-950 dark:text-stone-300 dark:hover:text-white"
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${showGoogleAdvanced ? 'rotate-180' : ''}`} />
+              {t('integrations.advancedGoogle')}
+            </button>
+
+            {showGoogleAdvanced && (
+              <div className="grid gap-3 rounded-md border border-stone-200 bg-white/70 p-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-stone-600">{t('integrations.oauthClientId')}</Label>
+                  <Input
+                    value={googleClientId}
+                    onChange={(event) => setGoogleClientId(event.target.value)}
+                    placeholder={googleStatus?.clientIdConfigured ? t('integrations.configured') : t('integrations.googleClientIdPlaceholder')}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-stone-600">{t('integrations.oauthClientSecret')}</Label>
+                  <Input
+                    type="password"
+                    value={googleClientSecret}
+                    onChange={(event) => setGoogleClientSecret(event.target.value)}
+                    placeholder={t('integrations.optionalPkce')}
+                  />
+                </div>
                 <div className="space-y-1.5 md:col-span-2">
-                  <Label className="text-xs text-stone-600">Webhook URL</Label>
+                  <Label className="text-xs text-stone-600">{t('integrations.realtimeWebhookUrl')}</Label>
                   <Input
                     type="url"
-                    value={config.webhookUrl || ''}
-                    onChange={(event) => updateConfig(config.provider, { webhookUrl: event.target.value })}
-                    placeholder="https://hook.eu2.make.com/..."
+                    value={googleWebhookUrl}
+                    onChange={(event) => setGoogleWebhookUrl(event.target.value)}
+                    placeholder="https://your-company-domain.com/google/calendar/webhook"
                   />
                 </div>
-              )}
-
-              {(config.provider === 'google-docs' || config.provider === 'obsidian' || config.provider === 'markdown') && (
-                <div className="space-y-1.5 md:col-span-2">
-                  <Label className="text-xs text-stone-600">Destination note</Label>
-                  <Input
-                    value={config.target || ''}
-                    onChange={(event) => updateConfig(config.provider, { target: event.target.value })}
-                    placeholder="Optional folder, vault, or document name"
-                  />
+                <div className="md:col-span-2">
+                  <Button type="button" variant="outline" disabled={isGoogleBusy} onClick={handleSaveGoogle}>
+                    <Check className="h-4 w-4" />
+                    {t('integrations.saveAdvanced')}
+                  </Button>
                 </div>
-              )}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
-              <label className="flex items-center gap-2 text-sm text-stone-700 md:col-span-2">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {otherConfigs.map((config) => (
+          <section key={config.provider} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <img
+                  src={ICON_URLS[config.provider]}
+                  alt=""
+                  className={`h-8 w-8 object-contain ${config.provider === 'notion' ? 'dark:invert' : ''}`}
+                />
+                <div>
+                  <h4 className="font-medium text-stone-950">{INTEGRATION_LABELS[config.provider]}</h4>
+                  <p className="text-xs text-stone-500">{t(HELP_KEYS[config.provider])}</p>
+                </div>
+              </div>
+              <Switch
+                checked={config.enabled}
+                onCheckedChange={(checked) => updateConfig(config.provider, { enabled: checked })}
+              />
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-stone-600">{t('integrations.accessToken')}</Label>
+                <Input
+                  type="password"
+                  value={config.token || ''}
+                  onChange={(event) => updateConfig(config.provider, { token: event.target.value })}
+                  placeholder={t('integrations.tokenPlaceholder')}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-stone-600">{t('integrations.destination')}</Label>
+                <Input
+                  value={config.target || ''}
+                  onChange={(event) => updateConfig(config.provider, { target: event.target.value })}
+                  placeholder={t('integrations.destinationPlaceholder')}
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-stone-700">
                 <Switch
                   checked={config.autoSendSummary}
                   onCheckedChange={(checked) => updateConfig(config.provider, { autoSendSummary: checked })}
                 />
-                Auto-send when a summary is completed
+                {t('integrations.autoSendSummaries')}
               </label>
             </div>
           </section>
         ))}
-      </div>
-
-      <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-900">
-        For Swiss deployments, the webhook option is the cleanest bridge: run n8n, Make, or a small internal service on Swiss hosting and connect Notion, Asana, Google Docs, Confluence, or your DMS there.
       </div>
     </div>
   );

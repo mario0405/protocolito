@@ -1,6 +1,6 @@
 {
     "name": "protocolito",
-    "version": "0.3.0",
+    "version": "0.3.2",
     "description": "Desktop meeting recorder and protocol assistant.",
     "author": {
         "name": "Protocolito",
@@ -14,6 +14,7 @@
         "build": "vite build",
         "dist": "npm run build && electron-builder && node scripts/patch-windows-icon.js",
         "lint": "tsc --noEmit",
+        "icons": "electron scripts/render-svg-to-png.js && electron scripts/generate-icons-from-png.js",
         "qa:packaged:settings": "node scripts/run-packaged-qa.js --script=qa-deep-settings.js --port=9340",
         "qa:packaged:infomaniak": "node scripts/run-packaged-qa.js --script=qa-infomaniak-settings.js --port=9341",
         "qa:packaged:infomaniak-config": "node scripts/run-packaged-qa.js --script=qa-infomaniak-config-file.js --port=9342 --infomaniak=config",

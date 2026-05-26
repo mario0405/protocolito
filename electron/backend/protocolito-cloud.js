@@ -117,7 +117,7 @@ async function getCloudModels(app, configOverride = null) {
   return callCloudJson({ app, path: '/v1/models', configOverride });
 }
 
-async function summarizeWithCloud({ app, text, model, customPrompt, userId, configOverride = null }) {
+async function summarizeWithCloud({ app, text, model, customPrompt, userId, deviceId, configOverride = null }) {
   const data = await callCloudJson({
     app,
     path: '/v1/summarize',
@@ -128,6 +128,7 @@ async function summarizeWithCloud({ app, text, model, customPrompt, userId, conf
       model,
       prompt: customPrompt || undefined,
       userId: userId || undefined,
+      deviceId: deviceId || undefined,
     },
   });
 
@@ -138,7 +139,7 @@ async function summarizeWithCloud({ app, text, model, customPrompt, userId, conf
   };
 }
 
-async function transcribeWithCloud({ app, audioData, mimeType, fileName, model, userId, configOverride = null }) {
+async function transcribeWithCloud({ app, audioData, mimeType, fileName, model, userId, deviceId, configOverride = null }) {
   const config = readProtocolitoCloudConfig(app, configOverride);
   if (!config.configured) {
     throw Object.assign(new Error('Protocolito cloud proxy is not configured.'), { code: 'CLOUD_NOT_CONFIGURED' });
@@ -160,6 +161,7 @@ async function transcribeWithCloud({ app, audioData, mimeType, fileName, model, 
   form.append('file', new Blob([buffer], { type: mimeType || 'audio/wav' }), fileName || 'recording.wav');
   form.append('model', model || 'whisper-large-v3');
   if (userId) form.append('userId', userId);
+  if (deviceId) form.append('deviceId', deviceId);
 
   const response = await fetch(`${config.baseUrl}/v1/transcribe`, {
     method: 'POST',

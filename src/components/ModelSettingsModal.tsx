@@ -61,6 +61,7 @@ export function ModelSettingsModal({
   skipInitialFetch = false,
 }: ModelSettingsModalProps) {
   const configContext = useConfig();
+  const t = configContext.t;
   const modelConfig = localSummaryConfig(skipInitialFetch ? propsModelConfig : (configContext?.modelConfig || propsModelConfig));
   const setModelConfig = skipInitialFetch ? propsSetModelConfig : (configContext?.setModelConfig || propsSetModelConfig);
   const { serverAddress } = useSidebar();
@@ -226,17 +227,17 @@ export function ModelSettingsModal({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label>Local summary engine</Label>
+        <Label>{t('summary.localEngine')}</Label>
         <p className="text-sm text-muted-foreground">
-          Run open-source summary models on this computer. Use this when you do not want cloud summarization.
+          {t('summary.localEngineDescription')}
         </p>
         <Select value={modelConfig.provider} onValueChange={(value) => updateProvider(value as LocalSummaryProvider)}>
           <SelectTrigger>
-            <SelectValue placeholder="Select local provider" />
+            <SelectValue placeholder={t('summary.selectLocalProvider')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="builtin-ai">Built-in local model</SelectItem>
-            <SelectItem value="ollama">Ollama local models</SelectItem>
+            <SelectItem value="builtin-ai">{t('summary.builtinLocalModel')}</SelectItem>
+            <SelectItem value="ollama">{t('summary.ollamaLocalModels')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -255,7 +256,7 @@ export function ModelSettingsModal({
               className="flex items-center justify-between cursor-pointer py-2"
               onClick={() => setIsEndpointSectionCollapsed(!isEndpointSectionCollapsed)}
             >
-              <Label className="cursor-pointer">Ollama endpoint</Label>
+              <Label className="cursor-pointer">{t('summary.ollamaEndpoint')}</Label>
               {isEndpointSectionCollapsed ? (
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               ) : (
@@ -266,7 +267,7 @@ export function ModelSettingsModal({
             {!isEndpointSectionCollapsed && (
               <>
                 <p className="text-sm text-muted-foreground mt-1 mb-2">
-                  Leave empty for the local Ollama default, or enter your own Ollama server URL.
+                  {t('summary.ollamaEndpointDescription')}
                 </p>
                 <div className="flex gap-2 mt-1">
                   <div className="relative flex-1">
@@ -301,12 +302,12 @@ export function ModelSettingsModal({
                     {isLoadingOllama ? (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Fetching...
+                        {t('summary.fetchingModels')}
                       </>
                     ) : (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4" />
-                        Fetch models
+                        {t('summary.fetchModels')}
                       </>
                     )}
                   </Button>
@@ -314,7 +315,7 @@ export function ModelSettingsModal({
                 {ollamaEndpointChanged && !error && (
                   <Alert className="mt-3 border-yellow-500 bg-yellow-50">
                     <AlertDescription className="text-yellow-800">
-                      Endpoint changed. Fetch models before saving.
+                      {t('summary.endpointChanged')}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -324,7 +325,7 @@ export function ModelSettingsModal({
 
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-bold">Available Ollama Models</h4>
+              <h4 className="text-sm font-bold">{t('summary.availableOllamaModels')}</h4>
               {lastFetchedEndpoint && models.length > 0 && (
                 <code className="px-2 py-1 bg-muted rounded text-xs">
                   {lastFetchedEndpoint || serverAddress || 'http://localhost:11434'}
@@ -334,7 +335,7 @@ export function ModelSettingsModal({
 
             {models.length > 0 && (
               <Input
-                placeholder="Search models..."
+                placeholder={t('summary.searchModels')}
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 className="mb-4 w-full"
@@ -344,7 +345,7 @@ export function ModelSettingsModal({
             {isLoadingOllama ? (
               <div className="text-center py-8 text-muted-foreground">
                 <RefreshCw className="mx-auto h-8 w-8 animate-spin mb-2" />
-                Loading models...
+                {t('summary.loadingModels')}
               </div>
             ) : models.length === 0 ? (
               <div className="space-y-3">
@@ -352,7 +353,7 @@ export function ModelSettingsModal({
                   <div className="space-y-4">
                     <Alert className="border-orange-500 bg-orange-50">
                       <AlertDescription className="text-orange-800">
-                        Ollama is not installed or not running.
+                        {t('summary.ollamaNotInstalled')}
                       </AlertDescription>
                     </Alert>
                     <Button
@@ -362,7 +363,7 @@ export function ModelSettingsModal({
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
                       <ExternalLink className="mr-2 h-4 w-4" />
-                      Download Ollama
+                      {t('summary.downloadOllama')}
                     </Button>
                   </div>
                 ) : (

@@ -5,6 +5,7 @@ import { Mic, Sparkles, Check, Loader2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OnboardingContainer } from '../OnboardingContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useConfig } from '@/contexts/ConfigContext';
 import { useRouter } from '@/lib/vite-shims/navigation';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -29,6 +30,7 @@ interface DownloadProgressStepProps {
 
 export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) {
   const router = useRouter();
+  const { t } = useConfig();
   const {
     goNext,
     selectedSummaryModel,
@@ -94,11 +96,11 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
       setParakeetState((prev) => ({
         ...prev,
         status: 'error',
-        error: error instanceof Error ? error.message : 'Retry failed',
+        error: error instanceof Error ? error.message : t('onboarding.retryFailed'),
       }));
 
-      toast.error('Download retry failed', {
-        description: 'Please check your connection and try again.',
+      toast.error(t('onboarding.downloadRetryFailed'), {
+        description: t('onboarding.checkConnection'),
       });
     } finally {
       // Allow retry again after 2 seconds
@@ -137,11 +139,11 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
       setGemmaState((prev) => ({
         ...prev,
         status: 'error',
-        error: error instanceof Error ? error.message : 'Retry failed',
+        error: error instanceof Error ? error.message : t('onboarding.retryFailed'),
       }));
 
-      toast.error('Summary model download retry failed', {
-        description: 'Please check your connection and try again.',
+      toast.error(t('onboarding.summaryRetryFailed'), {
+        description: t('onboarding.checkConnection'),
       });
     } finally {
       // Allow retry again after 2 seconds
@@ -315,8 +317,8 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
           progress: 100,
         }));
       } else if (!actuallyAvailable && parakeetState.status === 'error') {
-        toast.error('Transcription engine required', {
-          description: 'Please retry the download before continuing.',
+        toast.error(t('onboarding.transcriptionRequired'), {
+          description: t('onboarding.retryBeforeContinuing'),
         });
         return;
       }
@@ -330,8 +332,8 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
 
     // Show toast if downloads still in progress
     if (!downloadsComplete) {
-      toast.info('Downloads will continue in the background', {
-        description: 'You can start using the app. Recording will be available once speech recognition is ready.',
+      toast.info(t('onboarding.downloadContinuesTitle'), {
+        description: t('onboarding.downloadContinuesDescription'),
         duration: 5000,
       });
     }
@@ -349,8 +351,8 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
         router.push('/');
       } catch (error) {
         console.error('Failed to complete onboarding:', error);
-        toast.error('Failed to complete setup', {
-          description: 'Please try again.',
+        toast.error(t('onboarding.completeSetupFailed'), {
+          description: t('onboarding.pleaseTryAgain'),
         });
         setIsCompleting(false);
       }
@@ -380,16 +382,16 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
         ollamaEndpoint: null,
       });
 
-      toast.success('Hosted inference selected', {
-        description: 'Choose the Infomaniak transcription and summary models in settings.',
+      toast.success(t('onboarding.hostedSelected'), {
+        description: t('onboarding.hostedSelectedDescription'),
       });
 
       router.push('/settings');
       onComplete?.();
     } catch (error) {
       console.error('Failed to enable hosted inference:', error);
-      toast.error('Failed to enable hosted inference', {
-        description: error instanceof Error ? error.message : 'Please try again.',
+      toast.error(t('onboarding.hostedEnableFailed'), {
+        description: error instanceof Error ? error.message : t('onboarding.pleaseTryAgain'),
       });
       setIsCompleting(false);
     }
@@ -414,7 +416,7 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
         </div>
         <div>
           {state.status === 'waiting' && (
-            <span className="text-sm text-gray-500">Waiting...</span>
+            <span className="text-sm text-gray-500">{t('onboarding.waiting')}</span>
           )}
           {state.status === 'downloading' && (
             <Loader2 className="w-5 h-5 text-gray-700 animate-spin" />
@@ -425,7 +427,7 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
             </div>
           )}
           {state.status === 'error' && (
-            <span className="text-sm text-red-500">Failed</span>
+            <span className="text-sm text-red-500">{t('onboarding.failed')}</span>
           )}
         </div>
       </div>
@@ -459,18 +461,18 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
 
       {state.status === 'error' && state.error && (
         <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-600 font-medium">Download Error</p>
+          <p className="text-sm text-red-600 font-medium">{t('onboarding.downloadError')}</p>
           <p className="text-xs text-red-500 mt-1">{state.error}</p>
-          {(title === 'Transcription Engine' || title === 'Summary Engine') && (
+          {(title === t('onboarding.transcriptionEngine') || title === t('onboarding.summaryEngine')) && (
             <button
-              onClick={title === 'Transcription Engine' ? handleRetryDownload : handleRetrySummaryDownload}
+              onClick={title === t('onboarding.transcriptionEngine') ? handleRetryDownload : handleRetrySummaryDownload}
               className="mt-3 w-full h-9 px-4 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Try Again
+              {t('common.tryAgain')}
             </button>
           )}
         </div>
@@ -480,8 +482,8 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
 
   return (
     <OnboardingContainer
-      title="Getting things ready"
-      description="Use Swiss-hosted inference or keep local models on this device."
+      title={t('onboarding.gettingReadyTitle')}
+      description={t('onboarding.gettingReadyDescription')}
       step={3}
       totalSteps={isMac ? 4 : 3}
     >
@@ -492,21 +494,21 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
             disabled={isCompleting}
             className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white"
           >
-            Use Swiss-hosted inference
+            {t('onboarding.useSwissHosted')}
           </Button>
         </div>
 
         {/* Download Cards */}
         <div className="w-full max-w-lg space-y-3">
           {renderDownloadCard(
-            'Transcription Engine',
+            t('onboarding.transcriptionEngine'),
             <Mic className="w-5 h-5 text-gray-600" />,
             parakeetState,
             '~670 MB'
           )}
 
           {renderDownloadCard(
-            'Summary Engine',
+            t('onboarding.summaryEngine'),
             <Sparkles className="w-5 h-5 text-gray-600" />,
             gemmaState,
             recommendedModel === 'gemma3:4b' ? '~2.5 GB' : '~806 MB'
@@ -526,9 +528,9 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
               <div className="flex items-start gap-3">
                 <Download className="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium">You can continue while this finishes</p>
+                  <p className="font-medium">{t('onboarding.continueWhileFinishes')}</p>
                   <p className="text-gray-700 mt-1">
-                    Download will continue in the background.
+                    {t('onboarding.downloadContinuesBackground')}
                   </p>
                 </div>
               </div>
@@ -546,7 +548,7 @@ export function DownloadProgressStep({ onComplete }: DownloadProgressStepProps) 
             {(isCompleting || !parakeetDownloaded) ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
-              'Continue'
+              t('onboarding.continue')
             )}
           </Button>
         </div>

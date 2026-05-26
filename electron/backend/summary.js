@@ -101,6 +101,7 @@ async function generateSummary({ app, db, args }) {
         text,
         model: model || config.model,
         customPrompt: prompt,
+        deviceId: db.getSetting('deviceId', null) || undefined,
         configOverride: accessCloud,
       });
     } else {

@@ -105,8 +105,8 @@ const Sidebar: React.FC = () => {
       Analytics.trackMeetingDeleted(itemId);
 
       // Show success toast
-      toast.success("Meeting deleted successfully", {
-        description: "All associated data has been removed"
+      toast.success(t('sidebar.meetingDeleted'), {
+        description: t('sidebar.meetingDeletedDescription')
       });
 
       // If deleting the active meeting, navigate to home
@@ -116,7 +116,7 @@ const Sidebar: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to delete meeting:', error);
-      toast.error("Failed to delete meeting", {
+      toast.error(t('sidebar.deleteMeetingFailed'), {
         description: error instanceof Error ? error.message : String(error)
       });
     }
@@ -147,7 +147,7 @@ const Sidebar: React.FC = () => {
 
     // Prevent empty titles
     if (!newTitle) {
-      toast.error("Meeting title cannot be empty");
+      toast.error(t('sidebar.meetingTitleRequired'));
       return;
     }
 
@@ -171,14 +171,14 @@ const Sidebar: React.FC = () => {
       // Track the edit
       Analytics.trackButtonClick('edit_meeting_title', 'sidebar');
 
-      toast.success("Meeting title updated successfully");
+      toast.success(t('sidebar.meetingTitleUpdated'));
 
       // Close modal and reset state
       setEditModalState({ isOpen: false, meetingId: null, currentTitle: '' });
       setEditingTitle('');
     } catch (error) {
       console.error('Failed to update meeting title:', error);
-      toast.error("Failed to update meeting title", {
+      toast.error(t('sidebar.meetingTitleUpdateFailed'), {
         description: error instanceof Error ? error.message : String(error)
       });
     }
@@ -228,6 +228,7 @@ const Sidebar: React.FC = () => {
     const isHomePage = pathname === '/';
     const isMeetingPage = pathname?.includes('/meeting-details');
     const isSettingsPage = pathname === '/settings';
+    const isSearchPage = pathname === '/search';
 
     return (
       <TooltipProvider>
@@ -289,6 +290,23 @@ const Sidebar: React.FC = () => {
               </TooltipContent>
             </Tooltip>
           )}
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => router.push('/search')}
+                aria-label={t('common.search')}
+                title={t('common.search')}
+                className={`p-2 rounded-lg transition-colors duration-150 ${isSearchPage ? 'bg-gray-100' : 'hover:bg-gray-100'
+                  }`}
+              >
+                <SearchIcon className="w-5 h-5 text-gray-600" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>{t('common.search')}</p>
+            </TooltipContent>
+          </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -385,7 +403,7 @@ const Sidebar: React.FC = () => {
                 )}
               </div>
               {searchQuery && item.id === 'meetings' && isSearching && (
-                <span className="ml-2 text-xs text-blue-500 animate-pulse">Searching...</span>
+                <span className="ml-2 text-xs text-blue-500 animate-pulse">{t('sidebar.searching')}</span>
               )}
             </>
           ) : (
@@ -409,7 +427,7 @@ const Sidebar: React.FC = () => {
                         handleEditStart(item.id, item.title);
                       }}
                       className="hover:text-blue-600 p-1 rounded-md hover:bg-blue-50 flex-shrink-0"
-                      aria-label="Edit meeting title"
+                      aria-label={t('sidebar.editMeetingTitle')}
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -419,7 +437,7 @@ const Sidebar: React.FC = () => {
                         setDeleteModalState({ isOpen: true, itemId: item.id });
                       }}
                       className="hover:text-red-600 p-1 rounded-md hover:bg-red-50 flex-shrink-0"
-                      aria-label="Delete meeting"
+                      aria-label={t('sidebar.deleteMeeting')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -430,7 +448,7 @@ const Sidebar: React.FC = () => {
               {/* Show transcript match snippet if available */}
               {hasTranscriptMatch && (
                 <div className="mt-1 ml-8 text-xs text-gray-500 bg-yellow-50 p-1.5 rounded border border-yellow-100 line-clamp-2">
-                  <span className="font-medium text-yellow-600">Match:</span> {matchingResult.matchContext}
+                  <span className="font-medium text-yellow-600">{t('sidebar.match')}</span> {matchingResult.matchContext}
                 </div>
               )}
             </div>
@@ -450,8 +468,8 @@ const Sidebar: React.FC = () => {
       {/* Floating collapse button */}
       <button
         onClick={toggleCollapse}
-        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-label={isCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+        title={isCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         className="absolute -right-6 top-20 z-50 p-1 bg-white hover:bg-gray-100 rounded-full shadow-lg border"
         style={{ transform: 'translateX(50%)' }}
       >
@@ -520,6 +538,20 @@ const Sidebar: React.FC = () => {
                 <span>{t('common.home')}</span>
               </div>
             )}
+            {!isCollapsed && (
+              <div
+                onClick={() => router.push('/search')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') router.push('/search');
+                }}
+                className={`p-3 text-lg font-semibold items-center hover:bg-gray-100 h-10 flex mx-3 mt-1 rounded-lg cursor-pointer ${pathname === '/search' ? 'bg-gray-100' : ''}`}
+              >
+                <SearchIcon className="w-4 h-4 mr-2" />
+                <span>{t('common.search')}</span>
+              </div>
+            )}
           </div>
 
           {/* Content area */}
@@ -536,7 +568,7 @@ const Sidebar: React.FC = () => {
                       <NotebookPen className="w-4 h-4 mr-2 text-gray-600" />
                       <span className="text-gray-700">{item.title}</span>
                       {searchQuery && item.id === 'meetings' && isSearching && (
-                        <span className="ml-2 text-xs text-blue-500 animate-pulse">Searching...</span>
+                        <span className="ml-2 text-xs text-blue-500 animate-pulse">{t('sidebar.searching')}</span>
                       )}
                     </div>
                   </div>
@@ -612,7 +644,7 @@ const Sidebar: React.FC = () => {
       {/* Confirmation Modal for Delete */}
       <ConfirmationModal
         isOpen={deleteModalState.isOpen}
-        text="Are you sure you want to delete this meeting? This action cannot be undone."
+        text={t('sidebar.deleteMeetingConfirm')}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteModalState({ isOpen: false, itemId: null })}
       />
@@ -623,14 +655,14 @@ const Sidebar: React.FC = () => {
       }}>
         <DialogContent className="sm:max-w-[425px]">
           <VisuallyHidden>
-            <DialogTitle>Edit Meeting Title</DialogTitle>
+            <DialogTitle>{t('sidebar.editMeetingTitle')}</DialogTitle>
           </VisuallyHidden>
           <div className="py-4">
-            <h3 className="text-lg font-semibold mb-4">Edit Meeting Title</h3>
+            <h3 className="text-lg font-semibold mb-4">{t('sidebar.editMeetingTitle')}</h3>
             <div className="space-y-4">
               <div>
                 <label htmlFor="meeting-title" className="block text-sm font-medium text-gray-700 mb-2">
-                  Meeting Title
+                  {t('sidebar.meetingTitle')}
                 </label>
                 <input
                   id="meeting-title"
@@ -645,7 +677,7 @@ const Sidebar: React.FC = () => {
                     }
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter meeting title"
+                  placeholder={t('sidebar.enterMeetingTitle')}
                   autoFocus
                 />
               </div>
@@ -656,13 +688,13 @@ const Sidebar: React.FC = () => {
               onClick={handleEditCancel}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleEditConfirm}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
             >
-              Save
+              {t('common.save')}
             </button>
           </DialogFooter>
         </DialogContent>

@@ -4,6 +4,7 @@ import { usePathname } from '@/lib/vite-shims/navigation';
 import { Toaster, toast } from 'sonner';
 import 'sonner/dist/styles.css';
 import Sidebar from '@/components/Sidebar';
+import SplashScreen from '@/components/SplashScreen';
 import MainContent from '@/components/MainContent';
 import AnalyticsProvider from '@/components/AnalyticsProvider';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -16,32 +17,20 @@ import { OnboardingFlow } from '@/components/onboarding';
 import { DownloadProgressToastProvider } from '@/components/shared/DownloadProgressToast';
 import { UpdateCheckProvider } from '@/components/UpdateCheckProvider';
 import { RecordingPostProcessingProvider } from '@/contexts/RecordingPostProcessingProvider';
+import { CalendarMeetingReminder } from '@/components/CalendarMeetingReminder';
 import { ImportAudioDialog, ImportDropOverlay } from '@/components/ImportAudio';
 import { ImportDialogProvider } from '@/contexts/ImportDialogContext';
 import { SidebarProvider } from '@/components/Sidebar/SidebarProvider';
 import { isAudioExtension, getAudioFormatsDisplayList } from '@/constants/audioFormats';
 import { loadBetaFeatures } from '@/types/betaFeatures';
+import { APP_NAME } from '@/constants/branding';
+import { listOfflineQueue, retryOfflineQueueItem } from '@/services/offlineQueueService';
 import Home from '@/app/page';
 import MeetingDetails from '@/app/meeting-details/page';
 import SettingsPage from '@/app/settings/page';
+import MeetingSearchPage from '@/app/search/page';
 
-function LoadingScreen() {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
-      <div className="flex flex-col items-center gap-8 text-center">
-        <img
-          src="protocolito-logo-full.svg"
-          alt="Protocolito"
-          className="h-auto w-[300px] max-w-[72vw]"
-          draggable={false}
-        />
-        <div className="h-1 w-48 overflow-hidden rounded-full bg-gray-100">
-          <div className="h-full w-2/5 animate-protocolito-loading rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-pink-500" />
-        </div>
-      </div>
-    </div>
-  );
-}
+/* SplashScreen is now in its own component file */
 
 function ConditionalImportDialog({
   showImportDialog,
@@ -69,6 +58,7 @@ function CurrentRoute() {
   const pathname = usePathname();
 
   if (pathname === '/settings') return <SettingsPage />;
+  if (pathname === '/search') return <MeetingSearchPage />;
   if (pathname === '/meeting-details') return <MeetingDetails />;
   return <Home />;
 }
@@ -84,6 +74,38 @@ function AppShell() {
   useEffect(() => {
     const timer = window.setTimeout(() => setShowStartupSplash(false), 5000);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', localStorage.getItem('protocolito.theme') === 'dark');
+  }, []);
+
+  useEffect(() => {
+    let syncing = false;
+
+    const syncOfflineQueue = async () => {
+      if (syncing || !navigator.onLine) return;
+      syncing = true;
+      try {
+        const queue = await listOfflineQueue();
+        for (const item of queue.filter((entry) => entry.status !== 'syncing')) {
+          await retryOfflineQueueItem(item.id);
+        }
+        if (queue.length > 0) {
+          toast.success('Offline recordings synced', {
+            description: `${queue.length} queued recording${queue.length === 1 ? '' : 's'} saved locally.`,
+          });
+        }
+      } catch (error) {
+        console.warn('[App] Offline queue sync failed:', error);
+      } finally {
+        syncing = false;
+      }
+    };
+
+    window.addEventListener('online', syncOfflineQueue);
+    syncOfflineQueue();
+    return () => window.removeEventListener('online', syncOfflineQueue);
   }, []);
 
   useEffect(() => {
@@ -210,11 +232,12 @@ function AppShell() {
                         <ImportDialogProvider onOpen={handleOpenImportDialog}>
                           <DownloadProgressToastProvider />
                           {showStartupSplash || isCheckingOnboarding ? (
-                            <LoadingScreen />
+                            <SplashScreen />
                           ) : showOnboarding ? (
                             <OnboardingFlow onComplete={handleOnboardingComplete} />
                           ) : (
                             <div className="flex">
+                              <CalendarMeetingReminder />
                               <Sidebar />
                               <MainContent>
                                 <CurrentRoute />

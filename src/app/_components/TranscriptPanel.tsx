@@ -71,7 +71,7 @@ export function TranscriptPanel({
                     variant="outline"
                     size="sm"
                     onClick={copyTranscript}
-                    title="Copy Transcript"
+                    title={t('meeting.copyTranscript')}
                   >
                     <Copy />
                     <span className='hidden md:inline'>
@@ -84,11 +84,11 @@ export function TranscriptPanel({
                     variant="outline"
                     size="sm"
                     onClick={() => showModal('languageSettings')}
-                    title="Language"
+                    title={t('transcription.language')}
                   >
                     <GlobeIcon />
                     <span className='hidden md:inline'>
-                      Language
+                      {t('transcription.language')}
                     </span>
                   </Button>
                 }
@@ -111,10 +111,10 @@ export function TranscriptPanel({
       {!isRecording && !isChecking && error && !isLinux && (
         <div className="flex justify-center px-4 pt-8">
           <div className="w-full max-w-md rounded-md border border-amber-200 bg-amber-50 p-4 text-center">
-            <p className="text-sm font-medium text-amber-950">Audio device check needs attention</p>
+            <p className="text-sm font-medium text-amber-950">{t('meeting.audioCheckAttention')}</p>
             <p className="mt-1 text-xs text-amber-800">{error}</p>
             <Button variant="outline" size="sm" className="mt-3" onClick={checkPermissions}>
-              Recheck devices
+              {t('meeting.recheckDevices')}
             </Button>
           </div>
         </div>

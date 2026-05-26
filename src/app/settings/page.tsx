@@ -77,7 +77,7 @@ export default function SettingsPage() {
               <ArrowLeft className="w-5 h-5" />
               <span>{t('common.back')}</span>
             </button>
-            <h1 className="text-3xl font-semibold tracking-normal">{t('settings.title')}</h1>
+              <h1 className="text-3xl font-semibold tracking-normal text-stone-950">{t('settings.title')}</h1>
           </div>
         </div>
       </div>
@@ -108,7 +108,7 @@ export default function SettingsPage() {
             })}
 
             <motion.div
-              className="absolute bottom-0 z-20 h-0.5 bg-emerald-700"
+              className="absolute bottom-0 z-20 h-0.5 bg-orange-600"
               layoutId="underline"
               style={{ left: underlineStyle.left, width: underlineStyle.width }}
               transition={{ type: 'spring', stiffness: 400, damping: 40 }}

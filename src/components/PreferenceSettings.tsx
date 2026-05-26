@@ -2,15 +2,16 @@
 
 import { useEffect, useState, useRef } from "react"
 import { Switch } from "./ui/switch"
-import { FolderOpen } from "lucide-react"
+import { Bell, FolderOpen, HardDrive, Languages, MessageSquareText, Moon, Sun } from "lucide-react"
 import { invoke } from "@tauri-apps/api/core"
 import Analytics from "@/lib/analytics"
-import AnalyticsConsentSwitch from "./AnalyticsConsentSwitch"
 import { useConfig, NotificationSettings } from "@/contexts/ConfigContext"
 import { LANGUAGES } from "@/constants/languages"
 import { Label } from "./ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 import type { AppLanguage } from "@/lib/i18n"
+import { ProtocolitoAccessSettings } from "@/components/ProtocolitoAccessSettings"
+import { OfflineQueueSettings } from "@/components/OfflineQueueSettings"
 
 export function PreferenceSettings() {
   const {
@@ -30,6 +31,7 @@ export function PreferenceSettings() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [previousNotificationsEnabled, setPreviousNotificationsEnabled] = useState<boolean | null>(null);
   const [languageSwitchProgress, setLanguageSwitchProgress] = useState<number | null>(null);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('protocolito.theme') === 'dark');
   const hasTrackedViewRef = useRef(false);
 
   // Lazy load preferences on mount (only loads if not already cached)
@@ -61,6 +63,11 @@ export function PreferenceSettings() {
 
     trackPreferencesViewed();
   }, [notificationSettings, isLoadingPreferences]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('protocolito.theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   // Update notificationsEnabled when notificationSettings are loaded from global state
   useEffect(() => {
@@ -145,12 +152,12 @@ export function PreferenceSettings() {
 
   // Show loading only if we're actually loading and don't have cached data
   if (isLoadingPreferences && !notificationSettings && !storageLocations) {
-    return <div className="max-w-2xl mx-auto p-6">Loading Preferences...</div>
+    return <div className="max-w-2xl mx-auto p-6">{t('common.loadingPreferences')}</div>
   }
 
   // Show loading if notificationsEnabled hasn't been determined yet
   if (notificationsEnabled === null && !isLoadingPreferences) {
-    return <div className="max-w-2xl mx-auto p-6">Loading Preferences...</div>
+    return <div className="max-w-2xl mx-auto p-6">{t('common.loadingPreferences')}</div>
   }
 
   // Ensure we have a boolean value for the Switch component
@@ -189,12 +196,34 @@ export function PreferenceSettings() {
         </div>
       )}
 
+      <ProtocolitoAccessSettings />
+
+      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-md bg-orange-50 p-2 text-orange-600">
+              {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">{t('preferences.appearanceTitle')}</h3>
+              <p className="text-sm text-gray-600">{t('preferences.appearanceDescription')}</p>
+            </div>
+          </div>
+          <Switch checked={darkMode} onCheckedChange={setDarkMode} />
+        </div>
+      </div>
+
       {/* Language Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('preferences.uiLanguageTitle')}</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          {t('preferences.uiLanguageDescription')}
-        </p>
+        <div className="mb-4 flex items-start gap-3">
+          <div className="mt-0.5 rounded-md bg-orange-50 p-2 text-orange-600">
+            <Languages className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">{t('preferences.uiLanguageTitle')}</h3>
+            <p className="text-sm text-gray-600">{t('preferences.uiLanguageDescription')}</p>
+          </div>
+        </div>
         <div className="space-y-2 max-w-md">
           <Label>{t('preferences.uiLanguageLabel')}</Label>
           <Select value={appLanguage} onValueChange={(value) => handleAppLanguageChange(value as AppLanguage)}>
@@ -211,10 +240,15 @@ export function PreferenceSettings() {
 
       {/* Meeting Language Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('preferences.meetingLanguageTitle')}</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          {t('preferences.meetingLanguageDescription')}
-        </p>
+        <div className="mb-4 flex items-start gap-3">
+          <div className="mt-0.5 rounded-md bg-orange-50 p-2 text-orange-600">
+            <MessageSquareText className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">{t('preferences.meetingLanguageTitle')}</h3>
+            <p className="text-sm text-gray-600">{t('preferences.meetingLanguageDescription')}</p>
+          </div>
+        </div>
         <div className="space-y-2 max-w-md">
           <Label>{t('preferences.meetingLanguageLabel')}</Label>
           <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
@@ -235,9 +269,14 @@ export function PreferenceSettings() {
       {/* Notifications Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('preferences.notificationsTitle')}</h3>
-            <p className="text-sm text-gray-600">{t('preferences.notificationsDescription')}</p>
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-md bg-orange-50 p-2 text-orange-600">
+              <Bell className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">{t('preferences.notificationsTitle')}</h3>
+              <p className="text-sm text-gray-600">{t('preferences.notificationsDescription')}</p>
+            </div>
           </div>
           <Switch checked={notificationsEnabledValue} onCheckedChange={setNotificationsEnabled} />
         </div>
@@ -245,10 +284,15 @@ export function PreferenceSettings() {
 
       {/* Data Storage Locations Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('preferences.storageTitle')}</h3>
-        <p className="text-sm text-gray-600 mb-6">
-          {t('preferences.storageDescription')}
-        </p>
+        <div className="mb-6 flex items-start gap-3">
+          <div className="mt-0.5 rounded-md bg-orange-50 p-2 text-orange-600">
+            <HardDrive className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">{t('preferences.storageTitle')}</h3>
+            <p className="text-sm text-gray-600">{t('preferences.storageDescription')}</p>
+          </div>
+        </div>
 
         <div className="space-y-4">
           {/* Database Location */}
@@ -285,7 +329,7 @@ export function PreferenceSettings() {
           <div className="p-4 border rounded-lg bg-gray-50">
             <div className="font-medium mb-2">{t('preferences.meetingRecordings')}</div>
             <div className="text-sm text-gray-600 mb-3 break-all font-mono text-xs">
-              {storageLocations?.recordings || 'Loading...'}
+              {storageLocations?.recordings || t('common.loadingPreferences')}
             </div>
             <button
               onClick={() => handleOpenFolder('recordings')}
@@ -299,15 +343,12 @@ export function PreferenceSettings() {
 
         <div className="mt-4 p-3 bg-blue-50 rounded-md">
           <p className="text-xs text-blue-800">
-            <strong>Note:</strong> {t('preferences.storageNote')}
+            <strong>{t('common.note')}</strong> {t('preferences.storageNote')}
           </p>
         </div>
       </div>
 
-      {/* Analytics Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <AnalyticsConsentSwitch />
-      </div>
+      <OfflineQueueSettings />
     </div>
   )
 }

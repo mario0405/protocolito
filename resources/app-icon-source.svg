@@ -1,0 +1,41 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tile-fill" x1="260" y1="150" x2="774" y2="874" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.58" stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E5E7EB"/>
+    </linearGradient>
+    <linearGradient id="p-fill" x1="320" y1="230" x2="680" y2="780" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF756B"/>
+      <stop offset="1" stop-color="#FF453B"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="190" y="184" width="684" height="704" rx="150" fill="#0F172A" opacity="0.04"/>
+  <rect x="178" y="172" width="684" height="704" rx="150" fill="#0F172A" opacity="0.05"/>
+  <rect x="166" y="158" width="684" height="704" rx="150" fill="#0F172A" opacity="0.035"/>
+  <rect x="146" y="132" width="684" height="704" rx="150" fill="#FFFFFF" opacity="0.75"/>
+  <rect x="154" y="140" width="684" height="704" rx="150" fill="url(#tile-fill)"/>
+  <path d="M212 214C244 184 284 170 338 170H642C736 170 816 246 816 340" stroke="#FFFFFF" stroke-width="34" stroke-linecap="round" opacity="0.72"/>
+  <path d="M206 802C242 840 296 858 372 858H664C752 858 820 794 836 704" stroke="#CBD5E1" stroke-width="30" stroke-linecap="round" opacity="0.56"/>
+
+  <text
+    x="326"
+    y="704"
+    fill="#0F172A"
+    opacity="0.18"
+    font-family="Arial Rounded MT Bold, Arial, sans-serif"
+    font-size="548"
+    font-weight="900"
+    letter-spacing="0"
+  >P</text>
+  <text
+    x="302"
+    y="676"
+    fill="url(#p-fill)"
+    font-family="Arial Rounded MT Bold, Arial, sans-serif"
+    font-size="548"
+    font-weight="900"
+    letter-spacing="0"
+  >P</text>
+</svg>

@@ -21,7 +21,7 @@ export function SummaryModelSettings({ refetchTrigger }: SummaryModelSettingsPro
     ollamaEndpoint: null,
   });
 
-  const { isAutoSummary, toggleIsAutoSummary } = useConfig();
+  const { isAutoSummary, toggleIsAutoSummary, t } = useConfig();
 
   const fetchModelConfig = useCallback(async () => {
     try {
@@ -31,7 +31,7 @@ export function SummaryModelSettings({ refetchTrigger }: SummaryModelSettingsPro
       }
     } catch (error) {
       console.error('Failed to fetch model config:', error);
-      toast.error('Failed to load model settings');
+      toast.error(t('summary.loadFailed'));
     }
   }, []);
 
@@ -78,7 +78,7 @@ export function SummaryModelSettings({ refetchTrigger }: SummaryModelSettingsPro
       await emit('model-config-updated', config);
     } catch (error) {
       console.error('Error saving model config:', error);
-      toast.error('Failed to save model settings');
+      toast.error(t('summary.saveFailed'));
       throw error;
     }
   };
@@ -88,15 +88,15 @@ export function SummaryModelSettings({ refetchTrigger }: SummaryModelSettingsPro
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Auto Summary</h3>
-            <p className="text-sm text-gray-600">Generate a protocol automatically when recording stops.</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('summary.autoTitle')}</h3>
+            <p className="text-sm text-gray-600">{t('summary.autoDescription')}</p>
           </div>
           <Switch checked={isAutoSummary} onCheckedChange={toggleIsAutoSummary} />
         </div>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <h3 className="text-lg font-semibold mb-4">Summary Model Configuration</h3>
+        <h3 className="text-lg font-semibold mb-4">{t('summary.modelConfiguration')}</h3>
         <SummaryModelSelector
           modelConfig={modelConfig}
           setModelConfig={setModelConfig}

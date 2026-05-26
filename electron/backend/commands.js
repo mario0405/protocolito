@@ -1,12 +1,15 @@
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
+const { safeStorage } = require('electron');
 const { Database } = require('./database');
 const { JsonStore, ensureDir } = require('./json-store');
 const { generateSummary } = require('./summary');
 const { listOllamaModels, builtinModels } = require('./models');
 const {
   callInfomaniakTranscription,
+  bearerAuthorization,
   infomaniakChatEndpoint,
   infomaniakTranscriptionEndpoint,
   listInfomaniakChatModels,
@@ -34,6 +37,289 @@ function normalizePlatform() {
 
 function trimSlash(value) {
   return String(value || '').trim().replace(/\/+$/, '');
+}
+
+const DEFAULT_PROTOCOLITO_CLOUD_URL = trimSlash(
+  process.env.PROTOCOLITO_DEFAULT_CLOUD_URL || 'https://api.protocolito.ch'
+);
+
+async function readJsonOrText(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: text };
+  }
+}
+
+function readOwnerGoogleConfig(app) {
+  const candidates = [
+    process.env.PROTOCOLITO_GOOGLE_CONFIG,
+    path.join(process.resourcesPath || '', 'google.config.json'),
+    path.join(process.resourcesPath || '', 'resources', 'google.config.json'),
+    app ? path.join(app.getAppPath(), 'resources', 'google.config.json') : null,
+    path.join(__dirname, '..', '..', 'google.config.json'),
+    path.join(__dirname, '..', '..', '.secrets', 'google.config.json'),
+  ].filter(Boolean);
+
+  for (const file of candidates) {
+    try {
+      if (fs.existsSync(file)) {
+        const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+        return {
+          clientId: data.clientId || '',
+          clientSecret: data.clientSecret || '',
+          realtimeWebhookUrl: data.realtimeWebhookUrl || '',
+        };
+      }
+    } catch (error) {
+      console.warn(`[Protocolito] Failed to read Google config file ${file}:`, error.message || error);
+    }
+  }
+
+  return {
+    clientId: process.env.PROTOCOLITO_GOOGLE_CLIENT_ID || '',
+    clientSecret: process.env.PROTOCOLITO_GOOGLE_CLIENT_SECRET || '',
+    realtimeWebhookUrl: process.env.PROTOCOLITO_GOOGLE_WEBHOOK_URL || '',
+  };
+}
+
+function getGoogleCalendarConfig(db, app) {
+  const saved = db.getGoogleCalendarState().config || {};
+  const owner = readOwnerGoogleConfig(app);
+  return {
+    clientId: saved.clientId || owner.clientId || '',
+    clientSecret: saved.clientSecret || owner.clientSecret || '',
+    realtimeWebhookUrl: saved.realtimeWebhookUrl || owner.realtimeWebhookUrl || '',
+    ownerConfigured: Boolean(owner.clientId),
+  };
+}
+
+function base64Url(buffer) {
+  return Buffer.from(buffer)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function sha256(value) {
+  return crypto.createHash('sha256').update(value).digest();
+}
+
+function encryptJson(value) {
+  const text = JSON.stringify(value || {});
+  if (safeStorage?.isEncryptionAvailable?.()) {
+    return {
+      mode: 'safeStorage',
+      value: safeStorage.encryptString(text).toString('base64'),
+    };
+  }
+
+  return {
+    mode: 'base64',
+    value: Buffer.from(text, 'utf8').toString('base64'),
+  };
+}
+
+function decryptJson(payload, fallback = null) {
+  if (!payload?.value) return fallback;
+  try {
+    if (payload.mode === 'safeStorage' && safeStorage?.isEncryptionAvailable?.()) {
+      return JSON.parse(safeStorage.decryptString(Buffer.from(payload.value, 'base64')));
+    }
+    return JSON.parse(Buffer.from(payload.value, 'base64').toString('utf8'));
+  } catch {
+    return fallback;
+  }
+}
+
+function summarizeStructuredSummary(summary) {
+  if (!summary) return '';
+  if (typeof summary.markdown === 'string') return summary.markdown;
+
+  return Object.entries(summary)
+    .filter(([key]) => !['summary_json', '_section_order', 'MeetingName'].includes(key))
+    .map(([, section]) => {
+      if (!section || typeof section !== 'object') return '';
+      const title = section.title ? `## ${section.title}` : '';
+      const blocks = Array.isArray(section.blocks)
+        ? section.blocks.map((block) => `- ${block.content || ''}`).join('\n')
+        : '';
+      return [title, blocks].filter(Boolean).join('\n');
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function buildMeetingSearchCorpus(meetings) {
+  return meetings.map((meeting, index) => {
+    const transcriptText = (meeting.transcripts || [])
+      .map((segment) => {
+        const speaker = segment.speaker ? `${segment.speaker}: ` : '';
+        return `[${segment.timestamp || 'unknown time'}] ${speaker}${segment.text || ''}`;
+      })
+      .join('\n');
+    const summaryText = summarizeStructuredSummary(meeting.summary);
+    const sourceId = `S${index + 1}`;
+    return {
+      sourceId,
+      meetingId: meeting.id,
+      title: meeting.title,
+      createdAt: meeting.created_at,
+      updatedAt: meeting.updated_at,
+      text: [
+        `Source ${sourceId}`,
+        `Meeting: ${meeting.title}`,
+        `Meeting ID: ${meeting.id}`,
+        `Created: ${meeting.created_at}`,
+        summaryText ? `Summary:\n${summaryText}` : '',
+        transcriptText ? `Transcript:\n${transcriptText}` : '',
+      ].filter(Boolean).join('\n'),
+    };
+  });
+}
+
+function tokenPreview(encryptedToken) {
+  const token = decryptJson(encryptedToken, null);
+  return token?.access_token ? { connected: true, expiresAt: token.expires_at || null } : { connected: false, expiresAt: null };
+}
+
+async function exchangeGoogleToken({ clientId, clientSecret, code, codeVerifier, redirectUri, refreshToken }) {
+  const body = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+  });
+
+  if (clientSecret) body.set('client_secret', clientSecret);
+  if (refreshToken) {
+    body.set('grant_type', 'refresh_token');
+    body.set('refresh_token', refreshToken);
+  } else {
+    body.set('grant_type', 'authorization_code');
+    body.set('code', code);
+    body.set('code_verifier', codeVerifier);
+  }
+
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+
+  const data = await readJsonOrText(response);
+  if (!response.ok) {
+    throw new Error(data.error_description || data.error || `Google token exchange failed with ${response.status}`);
+  }
+
+  return {
+    ...data,
+    refresh_token: data.refresh_token || refreshToken || null,
+    expires_at: Date.now() + Math.max(0, Number(data.expires_in || 3600) - 60) * 1000,
+  };
+}
+
+async function ensureGoogleAccessToken(db, app) {
+  const state = db.getGoogleCalendarState();
+  const config = getGoogleCalendarConfig(db, app);
+  const token = decryptJson(state.token, null);
+  if (!config.clientId) throw new Error('Google Calendar client ID is missing.');
+  if (!token?.access_token) throw new Error('Google Calendar is not connected.');
+
+  if (!token.expires_at || token.expires_at > Date.now()) return token.access_token;
+  if (!token.refresh_token) throw new Error('Google Calendar refresh token is missing. Reconnect Google Calendar.');
+
+  const refreshed = await exchangeGoogleToken({
+    clientId: config.clientId,
+    clientSecret: config.clientSecret || '',
+    refreshToken: token.refresh_token,
+    redirectUri: token.redirect_uri || 'http://127.0.0.1',
+  });
+  db.setGoogleCalendarToken(encryptJson({ ...token, ...refreshed }));
+  return refreshed.access_token;
+}
+
+function normalizeGoogleEvent(event) {
+  const start = event.start?.dateTime || event.start?.date || null;
+  const end = event.end?.dateTime || event.end?.date || null;
+  const isPrivate = event.visibility === 'private';
+  return {
+    id: event.id,
+    calendarId: 'primary',
+    title: isPrivate ? 'Private event' : (event.summary || 'Untitled event'),
+    start,
+    end,
+    attendees: isPrivate ? [] : (event.attendees || []).map((attendee) => ({
+      email: attendee.email || '',
+      name: attendee.displayName || '',
+      responseStatus: attendee.responseStatus || '',
+    })),
+    description: isPrivate ? '' : (event.description || ''),
+    location: isPrivate ? '' : (event.location || ''),
+    htmlLink: event.htmlLink || '',
+    isPrivate,
+    updated: event.updated || null,
+  };
+}
+
+async function callInfomaniakSearchAnswer({ app, db, question, corpus }) {
+  const config = db.getSetting('modelConfig', {}) || {};
+  const accessConfig = db.getSetting('accessConfig', {}) || {};
+  const accessCloud = accessConfig.baseUrl && accessConfig.accessKey
+    ? { baseUrl: accessConfig.baseUrl, companyKey: accessConfig.accessKey }
+    : null;
+  const cloud = readProtocolitoCloudConfig(app, accessCloud);
+  const model = config.model || config.modelName || '';
+  const prompt = [
+    'Answer the user question using only the provided meeting sources.',
+    'Be conversational and concise.',
+    'Include source references like [S1] or [S2] after claims.',
+    'If the answer is not in the sources, say that you could not find it.',
+  ].join('\n');
+
+  if (cloud.configured) {
+    const response = await fetch(`${cloud.baseUrl}/v1/summarize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-protocolito-key': cloud.companyKey,
+      },
+      body: JSON.stringify({
+        model,
+        text: `Question:\n${question}\n\nSources:\n${corpus}`,
+        customPrompt: prompt,
+      }),
+    });
+    const data = await readJsonOrText(response);
+    if (!response.ok) throw new Error(data.error || `Protocolito Cloud returned ${response.status}`);
+    return data.markdown || data.answer || data.summary || data.choices?.[0]?.message?.content || '';
+  }
+
+  const ownerConfig = ownerInfomaniakConfig();
+  const endpoint = infomaniakChatEndpoint(ownerConfig.productId);
+  if (!endpoint || !ownerConfig.apiKey) {
+    throw new Error('Infomaniak is not configured for AI meeting search.');
+  }
+
+  const response = await fetch(`${endpoint.replace(/\/+$/, '')}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: bearerAuthorization(ownerConfig.apiKey),
+    },
+    body: JSON.stringify({
+      model: model || ownerConfig.summaryModels[0] || 'gpt-oss',
+      temperature: 0.2,
+      messages: [
+        { role: 'system', content: prompt },
+        { role: 'user', content: `Question:\n${question}\n\nSources:\n${corpus}` },
+      ],
+    }),
+  });
+  const data = await readJsonOrText(response);
+  if (!response.ok) throw new Error(data.error?.message || data.error || `Infomaniak returned ${response.status}`);
+  return data.choices?.[0]?.message?.content || '';
 }
 
 function templateDir(app) {
@@ -105,7 +391,7 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
     const saved = db.getSetting('accessConfig', null) || {};
     const cloud = readProtocolitoCloudConfig(app);
     return {
-      baseUrl: trimSlash(saved.baseUrl || cloud.baseUrl || process.env.PROTOCOLITO_CLOUD_URL || ''),
+      baseUrl: trimSlash(saved.baseUrl || cloud.baseUrl || process.env.PROTOCOLITO_CLOUD_URL || DEFAULT_PROTOCOLITO_CLOUD_URL),
       accessKey: String(saved.accessKey || saved.companyKey || '').trim(),
       company: saved.company || null,
       lastCheckedAt: saved.lastCheckedAt || null,
@@ -161,7 +447,7 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
         }),
       });
 
-      const data = await response.json().catch(async () => ({ error: await response.text() }));
+      const data = await readJsonOrText(response);
       if (!response.ok || !data.ok) {
         const failed = {
           ...config,
@@ -411,6 +697,214 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
     },
     api_check_access: ({ action }) => checkAccess(action),
 
+    api_google_calendar_get_status: () => {
+      const state = db.getGoogleCalendarState();
+      const config = getGoogleCalendarConfig(db, app);
+      return {
+        connected: tokenPreview(state.token).connected,
+        expiresAt: tokenPreview(state.token).expiresAt,
+        clientIdConfigured: Boolean(config.clientId),
+        ownerConfigured: Boolean(config.ownerConfigured),
+        realtimeWebhookUrl: config.realtimeWebhookUrl || '',
+        lastSyncedAt: state.sync?.lastSyncedAt || null,
+        lastError: state.sync?.lastError || null,
+        eventCount: (state.events || []).length,
+      };
+    },
+    api_google_calendar_save_config: ({ clientId, clientSecret, realtimeWebhookUrl }) => {
+      const patch = {
+        realtimeWebhookUrl: String(realtimeWebhookUrl || '').trim(),
+      };
+      const nextClientId = String(clientId || '').trim();
+      const nextClientSecret = String(clientSecret || '').trim();
+      if (nextClientId) patch.clientId = nextClientId;
+      if (nextClientSecret) patch.clientSecret = nextClientSecret;
+      const config = db.setGoogleCalendarConfig(patch);
+      return {
+        status: 'success',
+        clientIdConfigured: Boolean(config.clientId),
+        realtimeWebhookUrl: config.realtimeWebhookUrl || '',
+      };
+    },
+    api_google_calendar_connect: async () => {
+      const state = db.getGoogleCalendarState();
+      const config = getGoogleCalendarConfig(db, app);
+      if (!config.clientId) throw new Error('Add a Google OAuth client ID before connecting.');
+
+      const codeVerifier = base64Url(crypto.randomBytes(64));
+      const oauthState = base64Url(crypto.randomBytes(24));
+      const scope = 'https://www.googleapis.com/auth/calendar.readonly';
+
+      const authResult = await new Promise((resolve, reject) => {
+        const server = http.createServer((req, res) => {
+          try {
+            const requestUrl = new URL(req.url, 'http://127.0.0.1');
+            if (requestUrl.pathname !== '/oauth/google/callback') {
+              res.writeHead(404);
+              res.end('Not found');
+              return;
+            }
+
+            const returnedState = requestUrl.searchParams.get('state');
+            const code = requestUrl.searchParams.get('code');
+            const error = requestUrl.searchParams.get('error');
+            if (error) throw new Error(error);
+            if (!code || returnedState !== oauthState) throw new Error('Invalid Google OAuth callback.');
+
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end('<html><body><h1>Protocolito is connected to Google Calendar.</h1><p>You can close this window.</p></body></html>');
+            server.close();
+            resolve({ code, redirectUri });
+          } catch (error) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end(error instanceof Error ? error.message : String(error));
+            server.close();
+            reject(error);
+          }
+        });
+
+        let redirectUri = '';
+        server.on('error', reject);
+        server.listen(0, '127.0.0.1', () => {
+          const address = server.address();
+          const port = typeof address === 'object' && address ? address.port : 0;
+          redirectUri = `http://127.0.0.1:${port}/oauth/google/callback`;
+          const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+          authUrl.searchParams.set('client_id', config.clientId);
+          authUrl.searchParams.set('redirect_uri', redirectUri);
+          authUrl.searchParams.set('response_type', 'code');
+          authUrl.searchParams.set('scope', scope);
+          authUrl.searchParams.set('access_type', 'offline');
+          authUrl.searchParams.set('prompt', 'consent');
+          authUrl.searchParams.set('state', oauthState);
+          authUrl.searchParams.set('code_challenge', base64Url(sha256(codeVerifier)));
+          authUrl.searchParams.set('code_challenge_method', 'S256');
+          shell.openExternal(authUrl.toString());
+        });
+
+        setTimeout(() => {
+          server.close();
+          reject(new Error('Google OAuth timed out. Try connecting again.'));
+        }, 120000);
+      });
+
+      const token = await exchangeGoogleToken({
+        clientId: config.clientId,
+        clientSecret: config.clientSecret || '',
+        code: authResult.code,
+        codeVerifier,
+        redirectUri: authResult.redirectUri,
+      });
+      db.setGoogleCalendarToken(encryptJson({ ...token, redirect_uri: authResult.redirectUri }));
+      return handlers.api_google_calendar_sync({ daysBack: 30, daysForward: 90 });
+    },
+    api_google_calendar_disconnect: () => {
+      db.clearGoogleCalendarToken();
+      return { status: 'success' };
+    },
+    api_google_calendar_sync: async ({ daysBack = 30, daysForward = 90 } = {}) => {
+      const accessToken = await ensureGoogleAccessToken(db, app);
+      const timeMin = new Date(Date.now() - Number(daysBack) * 86400000).toISOString();
+      const timeMax = new Date(Date.now() + Number(daysForward) * 86400000).toISOString();
+      const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events');
+      url.searchParams.set('singleEvents', 'true');
+      url.searchParams.set('orderBy', 'startTime');
+      url.searchParams.set('timeMin', timeMin);
+      url.searchParams.set('timeMax', timeMax);
+      url.searchParams.set('maxResults', '250');
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await readJsonOrText(response);
+      if (!response.ok) {
+        db.setGoogleCalendarEvents(db.getGoogleCalendarState().events || [], { lastError: data.error?.message || data.error || `Google Calendar returned ${response.status}` });
+        throw new Error(data.error?.message || data.error || `Google Calendar returned ${response.status}`);
+      }
+
+      const events = (data.items || []).map(normalizeGoogleEvent);
+      db.setGoogleCalendarEvents(events, { lastError: null, syncToken: data.nextSyncToken || null });
+      return { status: 'success', events, count: events.length };
+    },
+    api_google_calendar_list_events: () => db.getGoogleCalendarState().events || [],
+    api_google_calendar_start_watch: async () => {
+      const webhookUrl = String(getGoogleCalendarConfig(db, app).realtimeWebhookUrl || '').trim();
+      if (!webhookUrl) throw new Error('Add a public HTTPS webhook URL to enable Google Calendar realtime notifications.');
+      const accessToken = await ensureGoogleAccessToken(db, app);
+      const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events/watch', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: crypto.randomUUID(),
+          type: 'web_hook',
+          address: webhookUrl,
+        }),
+      });
+      const data = await readJsonOrText(response);
+      if (!response.ok) throw new Error(data.error?.message || data.error || `Google watch returned ${response.status}`);
+      db.setGoogleCalendarConfig({ watch: data });
+      return { status: 'success', watch: data };
+    },
+
+    api_meeting_search_chat: async ({ query, limit = 12 }) => {
+      const question = String(query || '').trim();
+      if (!question) return { answer: '', sources: [] };
+      const docs = buildMeetingSearchCorpus(db.getAllMeetingDocuments()).filter((doc) => doc.text.trim());
+      const selected = docs.slice(0, Math.max(1, Number(limit)));
+      if (!selected.length) {
+        return { answer: 'I could not find any saved meeting notes or transcripts to search.', sources: [] };
+      }
+      const corpus = selected.map((doc) => doc.text.slice(0, 12000)).join('\n\n---\n\n');
+      const answer = await callInfomaniakSearchAnswer({ app, db, question, corpus });
+      return {
+        answer,
+        sources: selected.map(({ sourceId, meetingId, title, createdAt }) => ({ sourceId, meetingId, title, createdAt })),
+      };
+    },
+
+    api_offline_queue_list: () => db.getOfflineQueue().map((item) => ({
+      id: item.id,
+      title: item.title,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      status: item.status,
+      attempts: item.attempts || 0,
+      error: item.error || null,
+      transcriptCount: decryptJson(item.payload, { transcripts: [] })?.transcripts?.length || 0,
+    })),
+    api_offline_queue_enqueue_recording: ({ title, transcripts, folderPath, templateId }) => {
+      const item = db.enqueueOfflineRecording({
+        title: title || 'Offline meeting',
+        folderPath: folderPath || null,
+        templateId: templateId || null,
+        payload: encryptJson({ transcripts: transcripts || [] }),
+      });
+      return { status: 'success', item };
+    },
+    api_offline_queue_delete: ({ id }) => db.deleteOfflineQueueItem(id),
+    api_offline_queue_retry: async ({ id }) => {
+      const item = db.getOfflineQueue().find((entry) => entry.id === id);
+      if (!item) throw new Error(`Offline item not found: ${id}`);
+      const payload = decryptJson(item.payload, { transcripts: [] });
+      db.updateOfflineQueueItem(id, { status: 'syncing', attempts: (item.attempts || 0) + 1, error: null });
+      try {
+        const saved = db.saveMeeting({
+          meetingTitle: item.title || 'Offline meeting',
+          transcripts: payload.transcripts || [],
+          folderPath: item.folderPath || null,
+          templateId: item.templateId || null,
+        });
+        db.deleteOfflineQueueItem(id);
+        return { status: 'success', meetingId: saved.meeting_id };
+      } catch (error) {
+        db.updateOfflineQueueItem(id, { status: 'error', error: error instanceof Error ? error.message : String(error) });
+        throw error;
+      }
+    },
+
     get_ollama_models: async ({ endpoint }) => listOllamaModels(endpoint),
     pull_ollama_model: ({ modelName }) => ({ status: 'unsupported', modelName }),
     delete_ollama_model: ({ modelName }) => ({ status: 'unsupported', modelName }),
@@ -471,6 +965,7 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
           audioData: args.audioData,
           mimeType: args.mimeType,
           fileName: args.fileName,
+          deviceId: getDeviceId(),
         });
       }
 

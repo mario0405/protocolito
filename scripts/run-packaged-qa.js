@@ -15,6 +15,9 @@ const scriptName = args.get('script') || 'qa-deep-settings.js';
 const port = Number(args.get('port') || 9340);
 const exe = path.join(root, 'dist', 'win-unpacked', 'Protocolito.exe');
 const qaScriptPath = path.join(root, 'artifacts', scriptName);
+const userDataDir = args.get('user-data-dir')
+  ? path.resolve(args.get('user-data-dir'))
+  : path.join(root, 'artifacts', `qa-userdata-${path.basename(scriptName, '.js')}`);
 const useConfigFile = args.get('infomaniak') === 'config';
 const useCloudConfig = args.get('cloud') === 'config';
 
@@ -104,21 +107,28 @@ async function main() {
   if (!fs.existsSync(qaScriptPath)) throw new Error(`QA script not found: ${qaScriptPath}`);
 
   killRunningApp();
+  fs.rmSync(userDataDir, { recursive: true, force: true });
+  fs.mkdirSync(userDataDir, { recursive: true });
+
+  const baseEnv = {
+    ...process.env,
+    PROTOCOLITO_USER_DATA_DIR: userDataDir,
+  };
 
   const app = spawn(exe, [`--remote-debugging-port=${port}`], {
     cwd: root,
     env: useCloudConfig
       ? {
-        ...process.env,
+        ...baseEnv,
         PROTOCOLITO_CLOUD_CONFIG: process.env.PROTOCOLITO_CLOUD_CONFIG || path.join(root, '.secrets', 'protocolito.cloud.json'),
       }
       : useConfigFile
       ? {
-        ...process.env,
+        ...baseEnv,
         PROTOCOLITO_INFOMANIAK_CONFIG: process.env.PROTOCOLITO_INFOMANIAK_CONFIG || path.join(root, 'infomaniak.config.json'),
       }
       : {
-        ...process.env,
+        ...baseEnv,
         PROTOCOLITO_INFOMANIAK_PRODUCT_ID: process.env.PROTOCOLITO_INFOMANIAK_PRODUCT_ID || 'owner-product',
         PROTOCOLITO_INFOMANIAK_API_KEY: process.env.PROTOCOLITO_INFOMANIAK_API_KEY || 'owner-key',
         PROTOCOLITO_INFOMANIAK_TRANSCRIPTION_MODELS: process.env.PROTOCOLITO_INFOMANIAK_TRANSCRIPTION_MODELS || 'whisper-large-v3,whisper-large-v3-turbo',

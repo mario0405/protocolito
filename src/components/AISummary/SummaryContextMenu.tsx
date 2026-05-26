@@ -1,3 +1,5 @@
+import { useConfig } from '@/contexts/ConfigContext';
+
 interface SummaryContextMenuProps {
   x: number;
   y: number;
@@ -7,7 +9,11 @@ interface SummaryContextMenuProps {
 }
 
 export function SummaryContextMenu({ x, y, selectedCount, onCopy, onDelete }: SummaryContextMenuProps) {
+  const { t } = useConfig();
+
   if (selectedCount === 0) return null;
+
+  const blockLabel = selectedCount > 1 ? t('common.blocks') : t('common.block');
 
   return (
     <div
@@ -19,15 +25,15 @@ export function SummaryContextMenu({ x, y, selectedCount, onCopy, onDelete }: Su
         className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2"
         onClick={onCopy}
       >
-        <span className="text-gray-600">Copy</span>
-        <span>{selectedCount > 1 ? `${selectedCount} blocks` : 'block'}</span>
+        <span className="text-gray-600">{t('common.copy')}</span>
+        <span>{selectedCount > 1 ? `${selectedCount} ${blockLabel}` : blockLabel}</span>
       </button>
       <button
         className="w-full px-4 py-2 text-left hover:bg-gray-100 text-red-600 flex items-center space-x-2"
         onClick={onDelete}
       >
-        <span>Delete</span>
-        <span>{selectedCount > 1 ? `${selectedCount} blocks` : 'block'}</span>
+        <span>{t('common.delete')}</span>
+        <span>{selectedCount > 1 ? `${selectedCount} ${blockLabel}` : blockLabel}</span>
       </button>
     </div>
   );

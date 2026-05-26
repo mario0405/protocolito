@@ -4,6 +4,7 @@ import { TranscriptSettings } from "./TranscriptSettings"
 import type { TranscriptModelProps } from "@/types/transcriptConfig"
 import { RecordingSettings, RecordingPreferences } from "./RecordingSettings"
 import { About } from "./About";
+import { useConfig } from "@/contexts/ConfigContext";
 
 interface SettingTabsProps {
     modelConfig: ModelConfig;
@@ -26,6 +27,7 @@ export function SettingTabs({
     setTranscriptModelConfig,
     onSaveTranscript,
 }: SettingTabsProps) {
+    const { t } = useConfig();
 
     const handleTabChange = () => {
         setSaveSuccess(null); // Reset save success when tab changes
@@ -34,10 +36,10 @@ export function SettingTabs({
     return (
         <Tabs defaultValue={defaultTab} className="w-full max-h-[calc(100vh-10rem)] overflow-y-auto" onValueChange={handleTabChange}>
   <TabsList>
-    <TabsTrigger value="transcriptSettings">Transcript</TabsTrigger>
-    <TabsTrigger value="modelSettings">Ai Summary</TabsTrigger>
-    <TabsTrigger value="recordingSettings">Preferences</TabsTrigger>
-    <TabsTrigger value="about">About</TabsTrigger>
+    <TabsTrigger value="transcriptSettings">{t('settings.transcription')}</TabsTrigger>
+    <TabsTrigger value="modelSettings">{t('settings.summary')}</TabsTrigger>
+    <TabsTrigger value="recordingSettings">{t('preferences.title')}</TabsTrigger>
+    <TabsTrigger value="about">{t('common.about')}</TabsTrigger>
   </TabsList>
   <TabsContent value="modelSettings">
     <ModelSettingsModal

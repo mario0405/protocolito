@@ -13,6 +13,7 @@ import {
 import { ModelConfig, ModelSettingsModal } from '@/components/ModelSettingsModal';
 import { InfomaniakModelSelector } from '@/components/settings/InfomaniakModelSelector';
 import { getInfomaniakCloudConfig } from '@/services/infomaniakCloudService';
+import { useConfig } from '@/contexts/ConfigContext';
 
 type SummarySource = 'local' | 'infomaniak';
 
@@ -47,6 +48,7 @@ export function SummaryModelSelector({
   onSaved,
   showDescription = true,
 }: SummaryModelSelectorProps) {
+  const { t } = useConfig();
   const [source, setSource] = useState<SummarySource>(modelConfig.provider === 'infomaniak' ? 'infomaniak' : 'local');
   const [infomaniakModel, setInfomaniakModel] = useState(modelConfig.provider === 'infomaniak' ? modelConfig.model : '');
   const [infomaniakModels, setInfomaniakModels] = useState<string[]>([]);
@@ -85,7 +87,7 @@ export function SummaryModelSelector({
       toast.success(successMessage);
     } catch (error) {
       console.error('Failed to save summary model settings:', error);
-      toast.error('Failed to save summary model settings');
+      toast.error(t('summary.saveFailed'));
     }
   }, [onSave, onSaved]);
 
@@ -122,11 +124,11 @@ export function SummaryModelSelector({
       ollamaEndpoint: null,
     };
 
-    await saveConfig(config, 'Infomaniak summary model saved');
+    await saveConfig(config, t('summary.savedInfomaniak'));
   };
 
   const handleSaveLocalSummary = async (config: ModelConfig) => {
-    await saveConfig(config, 'Local summary model saved');
+    await saveConfig(config, t('summary.savedLocal'));
   };
 
   const handleSetLocalModelConfig = (config: ModelConfig | ((prev: ModelConfig) => ModelConfig)) => {
@@ -136,33 +138,33 @@ export function SummaryModelSelector({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label>Summary source</Label>
+        <Label>{t('summary.source')}</Label>
         {showDescription && (
           <p className="text-sm text-muted-foreground">
-            Choose whether protocols are summarized locally on this laptop or through the company Infomaniak cloud setup.
+            {t('summary.sourceDescription')}
           </p>
         )}
         <Select value={source} onValueChange={(value) => handleSourceChange(value as SummarySource)}>
           <SelectTrigger>
-            <SelectValue placeholder="Select summary source" />
+            <SelectValue placeholder={t('summary.sourcePlaceholder')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="infomaniak">Infomaniak cloud</SelectItem>
-            <SelectItem value="local">Local open-source model</SelectItem>
+            <SelectItem value="infomaniak">{t('summary.infomaniakCloud')}</SelectItem>
+            <SelectItem value="local">{t('summary.localModelSource')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {source === 'infomaniak' ? (
         <InfomaniakModelSelector
-          title="Infomaniak Summary"
-          description="Company credentials stay on the Protocolito server. Users only choose the allowed summary model."
-          label="Summary model"
+          title={t('summary.infomaniakTitle')}
+          description={t('summary.cloudDescription')}
+          label={t('summary.model')}
           models={infomaniakModels}
           value={infomaniakModel}
           configured={infomaniakConfigured}
-          placeholder="Configured Infomaniak summary model"
-          actionLabel="Save Infomaniak summary model"
+          placeholder={t('summary.modelPlaceholder')}
+          actionLabel={t('summary.saveInfomaniak')}
           onChange={(model) => {
             setInfomaniakModel(model);
             setModelConfig({

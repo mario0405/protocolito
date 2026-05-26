@@ -10,7 +10,7 @@ import {
 } from "@/types/betaFeatures"
 
 export function BetaSettings() {
-  const { betaFeatures, toggleBetaFeature } = useConfig();
+  const { betaFeatures, toggleBetaFeature, t } = useConfig();
 
   // Define feature order for display (allows custom ordering)
   const featureOrder: BetaFeatureKey[] = ['importAndRetranscribe'];
@@ -21,9 +21,9 @@ export function BetaSettings() {
       <div className="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
         <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-yellow-800">
-          <p className="font-medium">Beta Features</p>
+          <p className="font-medium">{t('beta.title')}</p>
           <p className="mt-1">
-            These features are still being tested. You may encounter issues, and we appreciate your feedback.
+            {t('beta.description')}
           </p>
         </div>
       </div>
@@ -42,7 +42,7 @@ export function BetaSettings() {
                   {BETA_FEATURE_NAMES[featureKey]}
                 </h3>
                 <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                  BETA
+                  {t('beta.badge')}
                 </span>
               </div>
               <p className="text-sm text-gray-600">
@@ -63,7 +63,7 @@ export function BetaSettings() {
       {/* Info Box */}
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-800">
-          <strong>Note:</strong> When disabled, beta features will be hidden. Your existing meetings remain unaffected.
+          <strong>{t('common.note')}</strong> {t('beta.note')}
         </p>
       </div>
     </div>

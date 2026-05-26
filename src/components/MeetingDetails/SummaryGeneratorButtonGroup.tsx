@@ -253,7 +253,7 @@ export function SummaryGeneratorButtonGroup({
             Analytics.trackButtonClick('stop_summary_generation', 'meeting_details');
             onStopGeneration();
           }}
-          title="Stop summary generation"
+          title={t('summary.stopGeneration')}
         >
           <Square className="xl:mr-2" size={18} fill="currentColor" />
           <span className="hidden lg:inline xl:inline">{t('summary.stop')}</span>
@@ -270,9 +270,9 @@ export function SummaryGeneratorButtonGroup({
           disabled={isCheckingModels || isModelConfigLoading}
           title={
             isModelConfigLoading
-              ? 'Loading model configuration...'
+              ? t('summary.loadingConfiguration')
               : isCheckingModels
-                ? 'Checking models...'
+                ? t('summary.checkingModels')
                 : t('summary.generate')
           }
         >
@@ -296,7 +296,7 @@ export function SummaryGeneratorButtonGroup({
           <Button
             variant="outline"
             size="sm"
-            title="Summary Settings"
+            title={t('summary.settingsTitle')}
           >
             <Settings />
             <span className="hidden lg:inline">{t('summary.aiModel')}</span>
@@ -327,7 +327,7 @@ export function SummaryGeneratorButtonGroup({
             <Button
               variant="outline"
               size="sm"
-              title="Select summary template"
+              title={t('summary.selectTemplate')}
             >
               <FileText />
               <span className="hidden lg:inline">{t('summary.template')}</span>

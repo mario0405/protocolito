@@ -16,14 +16,25 @@ const Logo = React.forwardRef<HTMLButtonElement, LogoProps>(({ isCollapsed }, re
           <button
             ref={ref}
             aria-label={`About ${APP_NAME}`}
-            className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-950 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-85"
+            className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl transition-opacity hover:opacity-85"
           >
-            P
+            <img
+              src="app-icon.png"
+              alt=""
+              className="h-9 w-9 rounded-xl"
+              draggable={false}
+            />
           </button>
         </DialogTrigger>
       ) : (
         <DialogTrigger asChild>
-          <span className="text-lg text-left font-semibold tracking-normal text-stone-950 mb-2 block items-center cursor-pointer hover:opacity-80 transition-opacity">
+          <span className="mb-2 flex items-center gap-2 text-left text-lg font-semibold tracking-normal text-stone-950 cursor-pointer hover:opacity-80 transition-opacity">
+            <img
+              src="app-icon.png"
+              alt=""
+              className="h-8 w-8 rounded-lg"
+              draggable={false}
+            />
             <span>{APP_NAME}</span>
           </span>
         </DialogTrigger>

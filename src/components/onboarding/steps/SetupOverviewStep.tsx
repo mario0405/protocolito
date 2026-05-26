@@ -4,6 +4,7 @@ import { Download, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OnboardingContainer } from '../OnboardingContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useConfig } from '@/contexts/ConfigContext';
 import {
   Tooltip,
   TooltipContent,
@@ -13,6 +14,7 @@ import {
 
 export function SetupOverviewStep() {
   const { goNext } = useOnboarding();
+  const { t } = useConfig();
   const [recommendedModel, setRecommendedModel] = useState<string>('gemma3:1b');
   const [modelSize, setModelSize] = useState<string>('~806 MB');
   const [isMac, setIsMac] = useState(false);
@@ -47,12 +49,12 @@ export function SetupOverviewStep() {
     {
       number: 1,
       type: 'transcription',
-      title: 'Download Transcription Engine',
+      title: t('onboarding.downloadTranscriptionEngine'),
     },
     {
       number: 2,
       type: 'summarization',
-      title: 'Download Summarization Engine',
+      title: t('onboarding.downloadSummaryEngine'),
     },
   ];
 
@@ -62,8 +64,8 @@ export function SetupOverviewStep() {
 
   return (
     <OnboardingContainer
-      title="Setup Overview"
-      description="Protocolito downloads local transcription and summarization models. You can switch summaries to owner-managed Infomaniak later."
+      title={t('onboarding.setupOverviewTitle')}
+      description={t('onboarding.setupOverviewDescription')}
       step={2}
       totalSteps={isMac ? 4 : 3}
     >
@@ -79,7 +81,7 @@ export function SetupOverviewStep() {
                 >
                   <div className="flex-1 ml-1">
                     <h3 className="font-medium text-gray-900 flex items-center gap-2">
-                        Step {step.number} :  {step.title}
+                        {t('onboarding.step')} {step.number}: {step.title}
 
                         {step.type === "summarization" && (
                             <TooltipProvider>
@@ -90,7 +92,7 @@ export function SetupOverviewStep() {
                                 </button>
                                 </TooltipTrigger>
                                 <TooltipContent className="max-w-xs text-sm">
-                                You can choose local open-source models or owner-managed Infomaniak for summary generation in settings.
+                                {t('onboarding.summaryModelTooltip')}
                                 </TooltipContent>
                             </Tooltip>
                             </TooltipProvider>
@@ -110,7 +112,7 @@ export function SetupOverviewStep() {
             onClick={handleContinue}
             className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white"
           >
-            Let's Go
+            {t('onboarding.letsGo')}
           </Button>
           <div className="text-center">
             <a
@@ -119,7 +121,7 @@ export function SetupOverviewStep() {
               rel="noopener noreferrer"
               className="text-xs text-gray-600 hover:underline"
             >
-              Report issues
+              {t('onboarding.reportIssues')}
             </a>
           </div>
         </div>

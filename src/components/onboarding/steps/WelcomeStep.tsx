@@ -3,29 +3,31 @@ import { Lock, Sparkles, Cpu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OnboardingContainer } from '../OnboardingContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useConfig } from '@/contexts/ConfigContext';
 
 export function WelcomeStep() {
   const { goNext } = useOnboarding();
+  const { t } = useConfig();
 
   const features = [
     {
       icon: Lock,
-      title: 'Private by default',
+      title: t('onboarding.privateDefault'),
     },
     {
       icon: Sparkles,
-      title: 'Swiss German meeting protocols',
+      title: t('onboarding.swissGermanProtocols'),
     },
     {
       icon: Cpu,
-      title: 'Local or Swiss-hosted inference',
+      title: t('onboarding.swissHostedInference'),
     },
   ];
 
   return (
     <OnboardingContainer
-      title="Welcome to Protocolito"
-      description="Record Swiss German meetings and turn them into clean protocols."
+      title={t('onboarding.welcomeTitle')}
+      description={t('onboarding.welcomeDescription')}
       step={1}
       hideProgress={true}
     >
@@ -56,9 +58,9 @@ export function WelcomeStep() {
             onClick={goNext}
             className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white"
           >
-            Get Started
+            {t('onboarding.getStarted')}
           </Button>
-          <p className="text-xs text-center text-gray-500">Takes less than 3 minutes</p>
+          <p className="text-xs text-center text-gray-500">{t('onboarding.lessThan3Minutes')}</p>
         </div>
       </div>
     </OnboardingContainer>
