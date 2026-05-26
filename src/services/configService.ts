@@ -1,0 +1,50 @@
+/**
+ * Configuration Service
+ *
+ * Handles all configuration-related Tauri backend calls.
+ * Pure 1-to-1 wrapper - no error handling changes, exact same behavior as direct invoke calls.
+ */
+
+import { invoke } from '@tauri-apps/api/core';
+import type { TranscriptModelProps } from '@/types/transcriptConfig';
+export type { ModelConfig } from '@/types/modelConfig';
+import type { ModelConfig } from '@/types/modelConfig';
+
+export interface RecordingPreferences {
+  preferred_mic_device: string | null;
+  preferred_system_device: string | null;
+}
+
+/**
+ * Configuration Service
+ * Singleton service for managing app configuration
+ */
+export class ConfigService {
+  /**
+   * Get saved transcript model configuration
+   * @returns Promise with { provider, model, apiKey }
+   */
+  async getTranscriptConfig(): Promise<TranscriptModelProps> {
+    return invoke<TranscriptModelProps>('api_get_transcript_config');
+  }
+
+  /**
+   * Get saved summary model configuration
+   * @returns Promise with { provider, model, whisperModel }
+   */
+  async getModelConfig(): Promise<ModelConfig> {
+    return invoke<ModelConfig>('api_get_model_config');
+  }
+
+  /**
+   * Get saved audio device preferences
+   * @returns Promise with { preferred_mic_device, preferred_system_device }
+   */
+  async getRecordingPreferences(): Promise<RecordingPreferences> {
+    return invoke<RecordingPreferences>('get_recording_preferences');
+  }
+
+}
+
+// Export singleton instance
+export const configService = new ConfigService();

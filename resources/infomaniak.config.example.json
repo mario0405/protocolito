@@ -1,0 +1,10 @@
+{
+  "productId": "your-infomaniak-ai-product-id",
+  "apiKey": "your-owner-managed-infomaniak-api-token",
+  "transcriptionModels": [
+    "whisper-large-v3"
+  ],
+  "summaryModels": [
+    "your-summary-model-name"
+  ]
+}
