@@ -99,4 +99,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release-artifacts/*
-          generate_release_notes: true
+          body: |
+            - [Windows](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-Windows-Setup.exe)
+            - [macOS](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-macOS.dmg)
+            - [Linux AppImage](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-Linux.AppImage)
+            - [Linux Debian/Ubuntu](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-Linux.deb)

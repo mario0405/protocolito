@@ -113,6 +113,7 @@
             "target": [
                 "nsis"
             ],
+            "artifactName": "Protocolito-Windows-Setup.${ext}",
             "icon": "resources/app_icon.ico",
             "signAndEditExecutable": false
         },
@@ -120,6 +121,7 @@
             "target": [
                 "dmg"
             ],
+            "artifactName": "Protocolito-macOS.${ext}",
             "icon": "resources/icon.png"
         },
         "linux": {
@@ -127,6 +129,7 @@
                 "AppImage",
                 "deb"
             ],
+            "artifactName": "Protocolito-Linux.${ext}",
             "icon": "resources/icon.png",
             "category": "Utility",
             "maintainer": "Protocolito <mario0405@users.noreply.github.com>"
