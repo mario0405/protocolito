@@ -4,7 +4,7 @@ const { rcedit } = require('rcedit');
 
 const root = path.resolve(__dirname, '..');
 const exePath = path.join(root, 'dist', 'win-unpacked', 'Protocolito.exe');
-const iconPath = path.join(root, 'build', 'app_icon.ico');
+const iconPath = path.join(root, 'resources', 'app_icon.ico');
 
 async function main() {
   if (process.platform !== 'win32') {

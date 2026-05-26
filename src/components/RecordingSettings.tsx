@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
-import { FolderOpen } from 'lucide-react';
+import { CheckCircle2, FolderOpen, KeyRound, Loader2, XCircle } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { DeviceSelection, SelectedDevices } from '@/components/DeviceSelection';
 import Analytics from '@/lib/analytics';
 import { toast } from 'sonner';
 import { useConfig } from '@/contexts/ConfigContext';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { accessService, AccessConfig } from '@/services/accessService';
 
 export interface RecordingPreferences {
   save_folder: string;
@@ -31,6 +34,15 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showRecordingNotification, setShowRecordingNotification] = useState(true);
+  const [accessConfig, setAccessConfig] = useState<AccessConfig>({
+    baseUrl: '',
+    accessKey: '',
+    company: null,
+    lastCheckedAt: null,
+    lastStatus: null,
+  });
+  const [accessSaving, setAccessSaving] = useState(false);
+  const [accessChecking, setAccessChecking] = useState(false);
 
   // Load recording preferences on component mount
   useEffect(() => {
@@ -53,6 +65,14 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     };
 
     loadPreferences();
+  }, []);
+
+  useEffect(() => {
+    accessService.getConfig()
+      .then(setAccessConfig)
+      .catch((error) => {
+        console.error('Failed to load access config:', error);
+      });
   }, []);
 
   // Load recording notification preference
@@ -123,6 +143,50 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     }
   };
 
+  const handleSaveAccess = async () => {
+    setAccessSaving(true);
+    try {
+      const saved = await accessService.saveConfig({
+        baseUrl: accessConfig.baseUrl,
+        accessKey: accessConfig.accessKey,
+      });
+      setAccessConfig(saved);
+      toast.success('Access settings saved');
+    } catch (error) {
+      console.error('Failed to save access settings:', error);
+      toast.error('Failed to save access settings');
+    } finally {
+      setAccessSaving(false);
+    }
+  };
+
+  const handleCheckAccess = async () => {
+    setAccessChecking(true);
+    try {
+      await handleSaveAccess();
+      const result = await accessService.check('settings_check');
+      const latest = await accessService.getConfig();
+      setAccessConfig(latest);
+
+      if (result.ok) {
+        toast.success('Access key is active', {
+          description: result.company?.name || result.company?.id || undefined,
+        });
+      } else {
+        toast.error('Access check failed', {
+          description: result.message || 'The key was not accepted.',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to check access:', error);
+      toast.error('Access check failed', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setAccessChecking(false);
+    }
+  };
+
   const savePreferences = async (prefs: RecordingPreferences) => {
     setSaving(true);
     try {
@@ -161,6 +225,71 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
         <p className="text-sm text-gray-600 mb-6">
           {t('recording.description')}
         </p>
+      </div>
+
+      <div className="p-4 border rounded-lg bg-white">
+        <div className="flex items-start gap-3">
+          <KeyRound className="mt-0.5 h-5 w-5 text-gray-500" />
+          <div className="flex-1 space-y-4">
+            <div>
+              <div className="font-medium">Protocolito access</div>
+              <div className="text-sm text-gray-600">
+                Enter the backend URL and customer license key used before recording or importing audio.
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">Backend URL</label>
+                <Input
+                  value={accessConfig.baseUrl}
+                  onChange={(event) => setAccessConfig((prev) => ({ ...prev, baseUrl: event.target.value }))}
+                  placeholder="https://protocolito.example.com"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">License key</label>
+                <Input
+                  type="password"
+                  value={accessConfig.accessKey}
+                  onChange={(event) => setAccessConfig((prev) => ({ ...prev, accessKey: event.target.value }))}
+                  placeholder="Paste customer key"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                onClick={handleSaveAccess}
+                variant="outline"
+                disabled={accessSaving || accessChecking}
+              >
+                {accessSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save
+              </Button>
+              <Button
+                type="button"
+                onClick={handleCheckAccess}
+                disabled={accessSaving || accessChecking}
+              >
+                {accessChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Check access
+              </Button>
+              {accessConfig.lastStatus === 'active' ? (
+                <span className="inline-flex items-center gap-1 text-sm text-green-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Active{accessConfig.company?.name ? ` for ${accessConfig.company.name}` : ''}
+                </span>
+              ) : accessConfig.lastStatus ? (
+                <span className="inline-flex items-center gap-1 text-sm text-red-700">
+                  <XCircle className="h-4 w-4" />
+                  Not active
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Auto Save Toggle */}

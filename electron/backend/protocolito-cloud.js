@@ -32,7 +32,18 @@ function cloudConfigCandidates(app) {
   return candidates.filter(Boolean);
 }
 
-function readProtocolitoCloudConfig(app) {
+function readProtocolitoCloudConfig(app, override = null) {
+  const overrideBaseUrl = trimSlash(override?.baseUrl || override?.apiUrl || override?.url);
+  const overrideCompanyKey = String(override?.companyKey || override?.accessKey || override?.apiKey || override?.token || '').trim();
+  if (overrideBaseUrl && overrideCompanyKey) {
+    return {
+      configured: true,
+      baseUrl: overrideBaseUrl,
+      companyKey: overrideCompanyKey,
+      source: 'settings',
+    };
+  }
+
   const fromEnv = {
     baseUrl: process.env.PROTOCOLITO_CLOUD_URL || '',
     companyKey: process.env.PROTOCOLITO_COMPANY_KEY || '',
@@ -82,8 +93,8 @@ function cloudHeaders(config, json = true) {
   };
 }
 
-async function callCloudJson({ app, path: apiPath, method = 'GET', body }) {
-  const config = readProtocolitoCloudConfig(app);
+async function callCloudJson({ app, path: apiPath, method = 'GET', body, configOverride = null }) {
+  const config = readProtocolitoCloudConfig(app, configOverride);
   if (!config.configured) {
     throw Object.assign(new Error('Protocolito cloud proxy is not configured.'), { code: 'CLOUD_NOT_CONFIGURED' });
   }
@@ -102,15 +113,16 @@ async function callCloudJson({ app, path: apiPath, method = 'GET', body }) {
   return data;
 }
 
-async function getCloudModels(app) {
-  return callCloudJson({ app, path: '/v1/models' });
+async function getCloudModels(app, configOverride = null) {
+  return callCloudJson({ app, path: '/v1/models', configOverride });
 }
 
-async function summarizeWithCloud({ app, text, model, customPrompt, userId }) {
+async function summarizeWithCloud({ app, text, model, customPrompt, userId, configOverride = null }) {
   const data = await callCloudJson({
     app,
     path: '/v1/summarize',
     method: 'POST',
+    configOverride,
     body: {
       text,
       model,
@@ -126,8 +138,8 @@ async function summarizeWithCloud({ app, text, model, customPrompt, userId }) {
   };
 }
 
-async function transcribeWithCloud({ app, audioData, mimeType, fileName, model, userId }) {
-  const config = readProtocolitoCloudConfig(app);
+async function transcribeWithCloud({ app, audioData, mimeType, fileName, model, userId, configOverride = null }) {
+  const config = readProtocolitoCloudConfig(app, configOverride);
   if (!config.configured) {
     throw Object.assign(new Error('Protocolito cloud proxy is not configured.'), { code: 'CLOUD_NOT_CONFIGURED' });
   }

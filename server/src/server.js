@@ -102,6 +102,72 @@ function appendUsage(event) {
   fs.appendFileSync(usageFile, `${JSON.stringify({ ...event, at: new Date().toISOString() })}\n`);
 }
 
+function publicCompany(company) {
+  if (!company) return null;
+  return {
+    id: company.id,
+    name: company.name || company.id,
+    plan: company.plan || 'standard',
+    enabled: company.enabled !== false,
+    monthlySummaryLimit: company.monthlySummaryLimit ?? null,
+    monthlyTranscriptionLimit: company.monthlyTranscriptionLimit ?? null,
+    summaryModels: company.summaryModels || ownerConfig().summaryModels,
+    transcriptionModels: company.transcriptionModels || ownerConfig().transcriptionModels,
+  };
+}
+
+function requireAdmin(req, res, next) {
+  const expected = String(process.env.ADMIN_TOKEN || '').trim();
+  const received = String(req.header('x-admin-token') || req.query.adminToken || '').trim();
+  if (!expected || !received || !constantTimeEqual(expected, received)) {
+    res.status(401).json({ error: 'Invalid admin token.' });
+    return;
+  }
+  next();
+}
+
+function readUsageEvents(limit = 200) {
+  if (!fs.existsSync(usageFile)) return [];
+  const lines = fs.readFileSync(usageFile, 'utf8')
+    .split(/\r?\n/)
+    .filter(Boolean);
+  return lines
+    .slice(-Math.max(1, Math.min(Number(limit) || 200, 1000)))
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+function usageTotals(events) {
+  return events.reduce((totals, event) => {
+    const companyId = event.companyId || 'unknown';
+    const current = totals[companyId] || {
+      accessChecks: 0,
+      summaries: 0,
+      transcriptions: 0,
+      inputChars: 0,
+      outputChars: 0,
+      inputBytes: 0,
+      errors: 0,
+    };
+
+    if (event.type === 'access_check') current.accessChecks += 1;
+    if (event.type === 'summary') current.summaries += 1;
+    if (event.type === 'transcription') current.transcriptions += 1;
+    if (event.ok === false) current.errors += 1;
+    current.inputChars += Number(event.inputChars || 0);
+    current.outputChars += Number(event.outputChars || 0);
+    current.inputBytes += Number(event.inputBytes || 0);
+    totals[companyId] = current;
+    return totals;
+  }, {});
+}
+
 function asyncHandler(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
@@ -117,6 +183,22 @@ app.use(cors({
 
 app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'protocolito-cloud-proxy' });
+});
+
+app.post('/v1/access/check', authenticate, (req, res) => {
+  appendUsage({
+    type: 'access_check',
+    ok: true,
+    companyId: req.company.id,
+    action: req.body?.action || 'unknown',
+    appVersion: req.body?.appVersion || null,
+    deviceId: req.body?.deviceId || null,
+  });
+
+  res.json({
+    ok: true,
+    company: publicCompany(req.company),
+  });
 });
 
 app.get('/v1/models', authenticate, (req, res) => {
@@ -212,6 +294,16 @@ app.post('/v1/transcribe', authenticate, upload.single('file'), asyncHandler(asy
 
   res.json({ text, model });
 }));
+
+app.get('/admin/usage', requireAdmin, (req, res) => {
+  const events = readUsageEvents(req.query.limit);
+  const companies = loadCompanies().map(publicCompany);
+  res.json({
+    companies,
+    totals: usageTotals(events),
+    recent: events.reverse(),
+  });
+});
 
 app.use((error, req, res, next) => {
   const status = error.statusCode || 500;

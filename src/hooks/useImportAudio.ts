@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import Analytics from '@/lib/analytics';
+import { accessService } from '@/services/accessService';
 
 export interface AudioFileInfo {
   path: string;
@@ -206,6 +207,8 @@ export function useImportAudio({
       setProgress(null);
 
       try {
+        await accessService.ensure('import_audio');
+
         if (fileInfo) {
           await Analytics.track('import_audio_started', {
             file_size_bytes: fileInfo.size_bytes.toString(),

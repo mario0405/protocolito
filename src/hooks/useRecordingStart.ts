@@ -5,6 +5,7 @@ import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useRecordingState, RecordingStatus } from '@/contexts/RecordingStateContext';
 import { recordingService } from '@/services/recordingService';
+import { accessService } from '@/services/accessService';
 import Analytics from '@/lib/analytics';
 import { showRecordingNotification } from '@/lib/recordingNotification';
 import { toast } from 'sonner';
@@ -36,6 +37,22 @@ export function useRecordingStart(
   const { setIsMeetingActive } = useSidebar();
   const { selectedDevices } = useConfig();
   const { setStatus } = useRecordingState();
+
+  const checkProtocolitoAccess = useCallback(async (action: string): Promise<boolean> => {
+    try {
+      await accessService.ensure(action);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error('Protocolito access required', {
+        description: message,
+        duration: 6000,
+      });
+      Analytics.trackButtonClick('start_recording_blocked_access', action);
+      setStatus(RecordingStatus.IDLE);
+      return false;
+    }
+  }, [setStatus]);
 
   // Generate meeting title with timestamp
   const generateMeetingTitle = useCallback(() => {
@@ -83,6 +100,9 @@ export function useRecordingStart(
   const handleRecordingStart = useCallback(async () => {
     try {
       console.log('handleRecordingStart called - checking Parakeet model status');
+
+      const hasAccess = await checkProtocolitoAccess('start_recording');
+      if (!hasAccess) return;
 
       // Check if Parakeet transcription model is ready before starting
       const parakeetReady = await checkParakeetReady();
@@ -141,7 +161,7 @@ export function useRecordingStart(
       // Re-throw so RecordingControls can handle device-specific errors
       throw error;
     }
-  }, [generateMeetingTitle, setMeetingTitle, setIsRecording, clearTranscripts, setIsMeetingActive, checkParakeetReady, checkIfModelDownloading, selectedDevices, showModal, setStatus]);
+  }, [generateMeetingTitle, setMeetingTitle, setIsRecording, clearTranscripts, setIsMeetingActive, checkParakeetReady, checkIfModelDownloading, selectedDevices, showModal, setStatus, checkProtocolitoAccess]);
 
   // Check for autoStartRecording flag and start recording automatically
   useEffect(() => {
@@ -152,6 +172,12 @@ export function useRecordingStart(
           console.log('Auto-starting recording from navigation...');
           setIsAutoStarting(true);
           sessionStorage.removeItem('autoStartRecording'); // Clear the flag
+
+          const hasAccess = await checkProtocolitoAccess('start_recording_auto');
+          if (!hasAccess) {
+            setIsAutoStarting(false);
+            return;
+          }
 
           // Check if Parakeet transcription model is ready before starting
           const parakeetReady = await checkParakeetReady();
@@ -226,6 +252,7 @@ export function useRecordingStart(
     setIsMeetingActive,
     checkParakeetReady,
     checkIfModelDownloading,
+    checkProtocolitoAccess,
     showModal,
     setStatus,
   ]);
@@ -240,6 +267,12 @@ export function useRecordingStart(
 
       console.log('Direct start from sidebar - checking Parakeet model status');
       setIsAutoStarting(true);
+
+      const hasAccess = await checkProtocolitoAccess('start_recording_direct');
+      if (!hasAccess) {
+        setIsAutoStarting(false);
+        return;
+      }
 
       // Check if Parakeet transcription model is ready before starting
       const parakeetReady = await checkParakeetReady();
@@ -315,6 +348,7 @@ export function useRecordingStart(
     setIsMeetingActive,
     checkParakeetReady,
     checkIfModelDownloading,
+    checkProtocolitoAccess,
     showModal,
     setStatus,
   ]);

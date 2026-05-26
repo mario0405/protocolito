@@ -79,6 +79,10 @@ async function callOpenAiCompatible({ endpoint, apiKey, model, text, prompt }) {
 
 async function generateSummary({ app, db, args }) {
   const config = db.getSetting('modelConfig', {});
+  const accessConfig = db.getSetting('accessConfig', {}) || {};
+  const accessCloud = accessConfig.baseUrl && accessConfig.accessKey
+    ? { baseUrl: accessConfig.baseUrl, companyKey: accessConfig.accessKey }
+    : null;
   const provider = args.model || config.provider || 'local-fallback';
   const model = args.modelName || config.model || '';
   const text = args.text || '';
@@ -91,12 +95,13 @@ async function generateSummary({ app, db, args }) {
 
   let summary;
   if (provider === 'infomaniak') {
-    if (readProtocolitoCloudConfig(app).configured) {
+    if (readProtocolitoCloudConfig(app, accessCloud).configured) {
       summary = await summarizeWithCloud({
         app,
         text,
         model: model || config.model,
         customPrompt: prompt,
+        configOverride: accessCloud,
       });
     } else {
       const ownerConfig = ownerInfomaniakConfig();

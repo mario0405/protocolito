@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { Database } = require('./database');
 const { JsonStore, ensureDir } = require('./json-store');
 const { generateSummary } = require('./summary');
@@ -29,6 +30,10 @@ function normalizePlatform() {
   if (process.platform === 'win32') return 'windows';
   if (process.platform === 'darwin') return 'macos';
   return 'linux';
+}
+
+function trimSlash(value) {
+  return String(value || '').trim().replace(/\/+$/, '');
 }
 
 function templateDir(app) {
@@ -86,6 +91,111 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
     const error = await shell.openPath(dir);
     if (error) throw new Error(error);
     return { status: 'success', path: dir };
+  }
+
+  function getDeviceId() {
+    const existing = db.getSetting('deviceId', null);
+    if (existing) return existing;
+    const next = crypto.randomUUID();
+    db.setSetting('deviceId', next);
+    return next;
+  }
+
+  function getAccessConfig() {
+    const saved = db.getSetting('accessConfig', null) || {};
+    const cloud = readProtocolitoCloudConfig(app);
+    return {
+      baseUrl: trimSlash(saved.baseUrl || cloud.baseUrl || process.env.PROTOCOLITO_CLOUD_URL || ''),
+      accessKey: String(saved.accessKey || saved.companyKey || '').trim(),
+      company: saved.company || null,
+      lastCheckedAt: saved.lastCheckedAt || null,
+      lastStatus: saved.lastStatus || null,
+    };
+  }
+
+  function getAccessCloudOverride() {
+    const config = getAccessConfig();
+    if (!config.baseUrl || !config.accessKey) return null;
+    return {
+      baseUrl: config.baseUrl,
+      companyKey: config.accessKey,
+    };
+  }
+
+  function saveAccessConfig(config) {
+    const previous = getAccessConfig();
+    const next = {
+      ...previous,
+      baseUrl: trimSlash(config.baseUrl),
+      accessKey: String(config.accessKey || '').trim(),
+      company: config.company || previous.company || null,
+      lastCheckedAt: config.lastCheckedAt || previous.lastCheckedAt || null,
+      lastStatus: config.lastStatus || previous.lastStatus || null,
+    };
+    db.setSetting('accessConfig', next);
+    return next;
+  }
+
+  async function checkAccess(action = 'unknown') {
+    const config = getAccessConfig();
+    if (!config.baseUrl || !config.accessKey) {
+      return {
+        ok: false,
+        status: 'missing',
+        message: 'Protocolito access key is missing. Add it in Settings > Preferences.',
+      };
+    }
+
+    try {
+      const response = await fetch(`${config.baseUrl}/v1/access/check`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-protocolito-key': config.accessKey,
+        },
+        body: JSON.stringify({
+          action,
+          appVersion: app.getVersion(),
+          deviceId: getDeviceId(),
+          platform: normalizePlatform(),
+        }),
+      });
+
+      const data = await response.json().catch(async () => ({ error: await response.text() }));
+      if (!response.ok || !data.ok) {
+        const failed = {
+          ...config,
+          lastCheckedAt: new Date().toISOString(),
+          lastStatus: 'denied',
+          company: null,
+        };
+        db.setSetting('accessConfig', failed);
+        return {
+          ok: false,
+          status: 'denied',
+          message: data.error || `Access check failed with status ${response.status}.`,
+        };
+      }
+
+      const updated = {
+        ...config,
+        company: data.company || null,
+        lastCheckedAt: new Date().toISOString(),
+        lastStatus: 'active',
+      };
+      db.setSetting('accessConfig', updated);
+      return {
+        ok: true,
+        status: 'active',
+        company: data.company || null,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   function getStore(filename) {
@@ -242,9 +352,10 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
     api_get_api_key: ({ provider }) => db.getApiKey(provider),
     api_get_transcript_api_key: ({ provider }) => db.getTranscriptApiKey(provider),
     api_get_infomaniak_cloud_config: async () => {
-      const cloud = readProtocolitoCloudConfig(app);
+      const accessCloud = getAccessCloudOverride();
+      const cloud = readProtocolitoCloudConfig(app, accessCloud);
       if (cloud.configured) {
-        const models = await getCloudModels(app);
+        const models = await getCloudModels(app, accessCloud);
         return {
           configured: true,
           mode: 'protocolito-cloud',
@@ -275,7 +386,7 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
       };
     },
     api_get_infomaniak_endpoints: () => {
-      const cloud = readProtocolitoCloudConfig(app);
+      const cloud = readProtocolitoCloudConfig(app, getAccessCloudOverride());
       if (cloud.configured) {
         return {
           chat: `${cloud.baseUrl}/v1/summarize`,
@@ -290,6 +401,15 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
     },
     api_get_auto_generate_setting: () => db.getSetting('autoGenerateSummary', false),
     api_save_auto_generate_setting: ({ enabled }) => db.setSetting('autoGenerateSummary', !!enabled),
+    api_get_access_config: () => getAccessConfig(),
+    api_save_access_config: (args) => {
+      const config = saveAccessConfig(args || {});
+      return {
+        status: 'success',
+        config,
+      };
+    },
+    api_check_access: ({ action }) => checkAccess(action),
 
     get_ollama_models: async ({ endpoint }) => listOllamaModels(endpoint),
     pull_ollama_model: ({ modelName }) => ({ status: 'unsupported', modelName }),
@@ -341,10 +461,12 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
     infomaniak_transcribe_audio: async (args) => {
       const config = normalizeTranscriptConfig(db.getSetting('transcriptConfig', null));
       if (config.provider !== 'infomaniak') return { configured: false, text: '' };
-      const cloud = readProtocolitoCloudConfig(app);
+      const accessCloud = getAccessCloudOverride();
+      const cloud = readProtocolitoCloudConfig(app, accessCloud);
       if (cloud.configured) {
         return transcribeWithCloud({
           app,
+          configOverride: accessCloud,
           model: config.modelName || config.model || 'whisper-large-v3',
           audioData: args.audioData,
           mimeType: args.mimeType,
