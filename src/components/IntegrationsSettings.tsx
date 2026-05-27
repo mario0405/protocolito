@@ -184,13 +184,13 @@ export function IntegrationsSettings() {
         </Button>
       </div>
 
-      <section className="rounded-lg border border-orange-200 bg-orange-50/70 p-5 dark:border-orange-900/70 dark:bg-[#221914]">
+      <section className="pt-panel rounded-2xl p-5">
         <div className="grid gap-5 md:grid-cols-[220px_1fr]">
           <div>
             <div className="flex items-center gap-3">
               <img src={ICON_URLS['google-calendar']} alt="" className="h-8 w-8 object-contain" />
               <div>
-                <h4 className="font-semibold text-stone-950">Google Calendar</h4>
+                <h4 className="font-semibold text-[var(--pt-text-primary)]">Google Calendar</h4>
                 <p className="text-xs text-stone-600 dark:text-stone-300">{googleStatus?.connected ? t('integrations.connected') : t('integrations.notConnected')}</p>
               </div>
             </div>
@@ -227,7 +227,7 @@ export function IntegrationsSettings() {
             </div>
 
             {!googleStatus?.clientIdConfigured && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <div className="rounded-xl border border-[var(--pt-border)] bg-[var(--pt-brand-soft)] px-3 py-2 text-sm text-[var(--pt-text-primary)]">
                 {t('integrations.googleOauthMissing')}
               </div>
             )}
@@ -242,7 +242,7 @@ export function IntegrationsSettings() {
             </button>
 
             {showGoogleAdvanced && (
-              <div className="grid gap-3 rounded-md border border-stone-200 bg-white/70 p-3 md:grid-cols-2">
+              <div className="grid gap-3 rounded-xl border border-[var(--pt-border)] bg-[var(--pt-bg-secondary)] p-3 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-stone-600">{t('integrations.oauthClientId')}</Label>
                   <Input
@@ -286,7 +286,7 @@ export function IntegrationsSettings() {
           const isConfigurable = ACTIVE_SEND_PROVIDERS.has(config.provider);
 
           return (
-          <section key={config.provider} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm dark:border-stone-700 dark:bg-stone-900">
+          <section key={config.provider} className="pt-panel rounded-2xl p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <img
@@ -342,7 +342,7 @@ export function IntegrationsSettings() {
               </label>
             </div>
             ) : (
-              <div className="mt-4 rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
+              <div className="mt-4 rounded-xl border border-[var(--pt-border)] bg-[var(--pt-bg-secondary)] px-3 py-2 text-xs text-[var(--pt-text-secondary)]">
                 Visible for roadmap clarity. Full OAuth/API setup will be added before this connector is enabled.
               </div>
             )}

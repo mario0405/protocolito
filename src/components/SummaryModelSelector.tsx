@@ -68,7 +68,9 @@ export function SummaryModelSelector({
         setInfomaniakModels(cloudConfig.summaryModels);
         setInfomaniakConfigured(cloudConfig.configured);
         if (cloudConfig.summaryModels.length > 0) {
-          setInfomaniakModel((current) => current || cloudConfig.summaryModels[0]);
+          setInfomaniakModel((current) => (
+            current && cloudConfig.summaryModels.includes(current) ? current : cloudConfig.summaryModels[0]
+          ));
         }
       } catch (error) {
         console.error('Failed to load Infomaniak cloud config:', error);
@@ -100,7 +102,7 @@ export function SummaryModelSelector({
       return;
     }
 
-    const selectedModel = infomaniakModel || infomaniakModels[0] || '';
+    const selectedModel = infomaniakModels.includes(infomaniakModel) ? infomaniakModel : (infomaniakModels[0] || infomaniakModel || '');
     const cloudConfig: ModelConfig = {
       ...modelConfig,
       provider: 'infomaniak',
@@ -114,7 +116,10 @@ export function SummaryModelSelector({
   };
 
   const handleSaveInfomaniakSummary = async () => {
-    const selectedModel = infomaniakModel.trim() || infomaniakModels[0] || '';
+    const current = infomaniakModel.trim();
+    const selectedModel = current && (!infomaniakModels.length || infomaniakModels.includes(current))
+      ? current
+      : (infomaniakModels[0] || current);
     const config: ModelConfig = {
       ...modelConfig,
       provider: 'infomaniak',

@@ -5,6 +5,8 @@ export interface AccessCompany {
   name: string;
   plan: string;
   enabled: boolean;
+  summaryModels?: string[];
+  transcriptionModels?: string[];
 }
 
 export interface AccessConfig {

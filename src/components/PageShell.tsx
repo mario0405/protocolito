@@ -11,7 +11,7 @@ export function PageShell({ children }: PageShellProps) {
   const { isCollapsed } = useSidebar();
 
   return (
-    <div className="min-h-screen bg-[var(--pt-bg-primary)] text-[var(--pt-text-primary)]">
+    <div className="min-h-screen pt-app-bg text-[var(--pt-text-primary)]">
       <Sidebar />
       <motion.main
         layout

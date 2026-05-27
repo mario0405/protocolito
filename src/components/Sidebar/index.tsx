@@ -350,8 +350,8 @@ const Sidebar: React.FC = () => {
           className={cn(
             'group flex items-center transition-colors',
             depth === 0
-              ? 'mx-3 mt-3 h-10 rounded-lg p-3 text-sm font-semibold text-stone-300'
-              : 'my-0.5 cursor-pointer rounded-lg px-3 py-2 text-sm text-stone-300 hover:bg-white/10 hover:text-white',
+              ? 'mx-3 mt-3 h-10 rounded-lg p-3 text-sm font-semibold text-[var(--pt-text-secondary)]'
+              : 'my-0.5 cursor-pointer rounded-lg px-3 py-2 text-sm text-[var(--pt-text-secondary)] hover:bg-[var(--pt-bg-secondary)] hover:text-[var(--pt-text-primary)]',
           )}
           style={depth === 0 ? {} : { paddingLeft }}
           onClick={() => toggleFolder(item.id)}
@@ -364,9 +364,9 @@ const Sidebar: React.FC = () => {
               <span className={depth === 0 ? "" : "font-medium"}>{item.title}</span>
               <div className="ml-auto">
                 {isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-stone-500" />
+                <ChevronDown className="h-4 w-4 text-[var(--pt-text-muted)]" />
                 ) : (
-                <ChevronRight className="h-4 w-4 text-stone-500" />
+                <ChevronRight className="h-4 w-4 text-[var(--pt-text-muted)]" />
                 )}
               </div>
               {searchQuery && item.id === 'meetings' && isSearching && (
@@ -391,7 +391,7 @@ const Sidebar: React.FC = () => {
         title={isCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         animate={{ rotate: isCollapsed ? 0 : 180 }}
         transition={{ duration: 0.18, ease: 'easeInOut' }}
-        className="absolute -right-4 top-20 z-50 rounded-full border border-white/10 bg-[#1b1d24] p-1 text-white shadow-lg hover:bg-[#242733]"
+        className="pt-glass absolute -right-4 top-20 z-50 rounded-full p-1 text-[var(--pt-text-primary)] hover:bg-[var(--pt-bg-elevated)]"
       >
         <ChevronRightCircle className="h-6 w-6" />
       </motion.button>
@@ -400,7 +400,7 @@ const Sidebar: React.FC = () => {
         layout
         animate={{ width: isCollapsed ? 56 : 240 }}
         transition={{ duration: 0.18, ease: 'easeInOut' }}
-        className="flex h-screen flex-col overflow-hidden border-r border-white/10 bg-[#17191f] text-stone-100"
+        className="pt-glass flex h-screen flex-col overflow-hidden border-y-0 border-l-0 text-[var(--pt-text-primary)]"
       >
         {/*  Header with traffic light spacing */}
         <div className="flex-shrink-0 h-22 flex items-center">
@@ -459,7 +459,7 @@ const Sidebar: React.FC = () => {
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') router.push('/');
                 }}
-                className="mx-3 mt-3 flex h-10 cursor-pointer items-center rounded-lg p-3 text-sm font-medium text-stone-200 hover:bg-white/10"
+                className="mx-3 mt-3 flex h-10 cursor-pointer items-center rounded-lg p-3 text-sm font-medium text-[var(--pt-text-secondary)] hover:bg-[var(--pt-bg-secondary)] hover:text-[var(--pt-text-primary)]"
               >
                 <Home className="w-4 h-4 mr-2" />
                 <span>{t('common.home')}</span>
@@ -473,7 +473,7 @@ const Sidebar: React.FC = () => {
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') router.push('/search');
                 }}
-                className={cn('mx-3 mt-1 flex h-10 cursor-pointer items-center rounded-lg p-3 text-sm font-medium text-stone-200 hover:bg-white/10', pathname === '/search' && 'bg-white/10 text-white')}
+                className={cn('mx-3 mt-1 flex h-10 cursor-pointer items-center rounded-lg p-3 text-sm font-medium text-[var(--pt-text-secondary)] hover:bg-[var(--pt-bg-secondary)] hover:text-[var(--pt-text-primary)]', pathname === '/search' && 'bg-[var(--pt-bg-secondary)] text-[var(--pt-text-primary)]')}
               >
                 <SearchIcon className="w-4 h-4 mr-2" />
                 <span>{t('common.search')}</span>
@@ -489,8 +489,8 @@ const Sidebar: React.FC = () => {
               <div className="flex-shrink-0">
                 {filteredSidebarItems.filter(item => item.type === 'folder').map(item => (
                   <div key={item.id}>
-                    <div className="mx-3 mt-3 flex h-10 items-center rounded-lg p-3 text-xs font-semibold uppercase tracking-[0.12em] text-stone-500">
-                      <NotebookPen className="mr-2 h-4 w-4 text-stone-500" />
+                    <div className="mx-3 mt-3 flex h-10 items-center rounded-lg p-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pt-text-muted)]">
+                      <NotebookPen className="mr-2 h-4 w-4 text-[var(--pt-text-muted)]" />
                       <span>{item.title}</span>
                       {searchQuery && item.id === 'meetings' && isSearching && (
                         <span className="ml-2 text-xs text-blue-500 animate-pulse">{t('sidebar.searching')}</span>
@@ -528,12 +528,12 @@ const Sidebar: React.FC = () => {
         {/* Footer */}
         {!isCollapsed && (
 
-          <div className="flex-shrink-0 border-t border-white/10 p-2">
+          <div className="flex-shrink-0 border-t border-[var(--pt-border)] p-2">
             <button
               onClick={handleRecordingToggle}
               disabled={isRecording}
               aria-label={isRecording ? t('sidebar.recordingInProgress') : t('home.startRecording')}
-              className={cn('flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-white transition-colors', isRecording ? 'bg-red-400 cursor-not-allowed' : 'bg-[var(--pt-brand)] hover:bg-[var(--pt-brand-strong)]')}
+              className={cn('flex w-full items-center justify-center rounded-xl px-3 py-2 text-sm font-medium text-white transition-colors', isRecording ? 'bg-red-400 cursor-not-allowed' : 'bg-[var(--pt-brand)] hover:bg-[var(--pt-brand-strong)] pt-coral-glow')}
             >
               {isRecording ? (
                 <>
@@ -552,7 +552,7 @@ const Sidebar: React.FC = () => {
               <button
                 onClick={() => openImportDialog()}
                 aria-label={t('sidebar.importAudio')}
-              className="mt-1 flex w-full items-center justify-center rounded-lg bg-white/10 px-3 py-2 text-sm font-medium text-stone-200 transition-colors hover:bg-white/10"
+              className="mt-1 flex w-full items-center justify-center rounded-xl bg-[var(--pt-bg-secondary)] px-3 py-2 text-sm font-medium text-[var(--pt-text-secondary)] transition-colors hover:text-[var(--pt-text-primary)]"
               >
                 <Upload className="w-4 h-4 mr-2" />
                 <span>{t('sidebar.importAudio')}</span>
@@ -562,7 +562,7 @@ const Sidebar: React.FC = () => {
             <button
               onClick={() => router.push('/settings')}
               aria-label={t('common.settings')}
-              className="mb-1 mt-1 flex w-full items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium text-stone-300 transition-colors hover:bg-white/10 hover:text-white"
+              className="mb-1 mt-1 flex w-full items-center justify-center rounded-xl px-3 py-1.5 text-sm font-medium text-[var(--pt-text-secondary)] transition-colors hover:bg-[var(--pt-bg-secondary)] hover:text-[var(--pt-text-primary)]"
             >
               <Settings className="w-4 h-4 mr-2" />
               <span>{t('common.settings')}</span>

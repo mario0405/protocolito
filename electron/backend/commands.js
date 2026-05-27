@@ -39,6 +39,14 @@ function trimSlash(value) {
   return String(value || '').trim().replace(/\/+$/, '');
 }
 
+function normalizeProtocolitoCloudUrl(value) {
+  const url = trimSlash(value);
+  if (/^https?:\/\/179\.237\.68\.110(?::\d+)?$/i.test(url)) {
+    return DEFAULT_PROTOCOLITO_CLOUD_URL;
+  }
+  return url;
+}
+
 const DEFAULT_PROTOCOLITO_CLOUD_URL = trimSlash(
   process.env.PROTOCOLITO_DEFAULT_CLOUD_URL || 'https://api.protocolito.ch'
 );
@@ -412,7 +420,7 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
     const saved = db.getSetting('accessConfig', null) || {};
     const cloud = readProtocolitoCloudConfig(app);
     return {
-      baseUrl: trimSlash(saved.baseUrl || cloud.baseUrl || process.env.PROTOCOLITO_CLOUD_URL || DEFAULT_PROTOCOLITO_CLOUD_URL),
+      baseUrl: normalizeProtocolitoCloudUrl(saved.baseUrl || cloud.baseUrl || process.env.PROTOCOLITO_CLOUD_URL || DEFAULT_PROTOCOLITO_CLOUD_URL),
       accessKey: String(saved.accessKey || saved.companyKey || '').trim(),
       company: saved.company || null,
       lastCheckedAt: saved.lastCheckedAt || null,
@@ -433,7 +441,7 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
     const previous = getAccessConfig();
     const next = {
       ...previous,
-      baseUrl: trimSlash(config.baseUrl),
+      baseUrl: normalizeProtocolitoCloudUrl(config.baseUrl),
       accessKey: String(config.accessKey || '').trim(),
       company: config.company || previous.company || null,
       lastCheckedAt: config.lastCheckedAt || previous.lastCheckedAt || null,

@@ -27,8 +27,8 @@ function RecordingSelect({ label, value, placeholder, options, disabled, onChang
         <SelectPrimitive.Trigger
           className={cn(
             'flex h-12 w-full items-center justify-between rounded-xl border border-[var(--pt-border)]',
-            'bg-[var(--pt-bg-secondary)] px-4 text-left text-sm font-medium text-[var(--pt-text-primary)]',
-            'outline-none transition-colors hover:border-stone-300 focus:ring-2 focus:ring-[var(--pt-brand)]/20',
+            'bg-[var(--pt-bg-glass)] px-4 text-left text-sm font-medium text-[var(--pt-text-primary)] backdrop-blur',
+            'pt-focus-ring transition-colors hover:border-[var(--pt-border-strong)]',
             'disabled:cursor-not-allowed disabled:opacity-60',
           )}
         >
@@ -41,7 +41,7 @@ function RecordingSelect({ label, value, placeholder, options, disabled, onChang
           <SelectPrimitive.Content
             position="popper"
             sideOffset={8}
-            className="z-[80] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[var(--pt-border)] bg-[var(--pt-bg-primary)] p-1 text-[var(--pt-text-primary)] shadow-xl"
+            className="pt-elevated z-[80] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl p-1 text-[var(--pt-text-primary)]"
           >
             <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16 }}>
               <SelectPrimitive.Viewport>

@@ -182,7 +182,7 @@ export function PreferenceSettings() {
   return (
     <div className="space-y-6">
       {languageSwitchProgress !== null && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/95">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--pt-bg-primary)]/95 backdrop-blur">
           <div className="w-full max-w-xs text-center">
             <div className="text-sm font-medium text-stone-950">{t('preferences.switchingLanguage')}</div>
             <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-stone-100">
@@ -198,10 +198,10 @@ export function PreferenceSettings() {
 
       <ProtocolitoAccessSettings />
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+      <div className="pt-panel rounded-2xl p-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 rounded-md bg-orange-50 p-2 text-orange-600">
+            <div className="mt-0.5 rounded-xl bg-[var(--pt-brand-soft)] p-2 text-[var(--pt-brand)]">
               {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </div>
             <div>
@@ -214,9 +214,9 @@ export function PreferenceSettings() {
       </div>
 
       {/* Language Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+      <div className="pt-panel rounded-2xl p-6">
         <div className="mb-4 flex items-start gap-3">
-          <div className="mt-0.5 rounded-md bg-orange-50 p-2 text-orange-600">
+          <div className="mt-0.5 rounded-xl bg-[var(--pt-brand-soft)] p-2 text-[var(--pt-brand)]">
             <Languages className="h-4 w-4" />
           </div>
           <div>
@@ -239,9 +239,9 @@ export function PreferenceSettings() {
       </div>
 
       {/* Meeting Language Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+      <div className="pt-panel rounded-2xl p-6">
         <div className="mb-4 flex items-start gap-3">
-          <div className="mt-0.5 rounded-md bg-orange-50 p-2 text-orange-600">
+          <div className="mt-0.5 rounded-xl bg-[var(--pt-brand-soft)] p-2 text-[var(--pt-brand)]">
             <MessageSquareText className="h-4 w-4" />
           </div>
           <div>
@@ -267,10 +267,10 @@ export function PreferenceSettings() {
       </div>
 
       {/* Notifications Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+      <div className="pt-panel rounded-2xl p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 rounded-md bg-orange-50 p-2 text-orange-600">
+            <div className="mt-0.5 rounded-xl bg-[var(--pt-brand-soft)] p-2 text-[var(--pt-brand)]">
               <Bell className="h-4 w-4" />
             </div>
             <div>
@@ -283,9 +283,9 @@ export function PreferenceSettings() {
       </div>
 
       {/* Data Storage Locations Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+      <div className="pt-panel rounded-2xl p-6">
         <div className="mb-6 flex items-start gap-3">
-          <div className="mt-0.5 rounded-md bg-orange-50 p-2 text-orange-600">
+          <div className="mt-0.5 rounded-xl bg-[var(--pt-brand-soft)] p-2 text-[var(--pt-brand)]">
             <HardDrive className="h-4 w-4" />
           </div>
           <div>
@@ -326,14 +326,14 @@ export function PreferenceSettings() {
           </div> */}
 
           {/* Recordings Location */}
-          <div className="p-4 border rounded-lg bg-gray-50">
+          <div className="rounded-xl border border-[var(--pt-border)] bg-[var(--pt-bg-secondary)] p-4">
             <div className="font-medium mb-2">{t('preferences.meetingRecordings')}</div>
             <div className="text-sm text-gray-600 mb-3 break-all font-mono text-xs">
               {storageLocations?.recordings || t('common.loadingPreferences')}
             </div>
             <button
               onClick={() => handleOpenFolder('recordings')}
-              className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+              className="pt-focus-ring flex items-center gap-2 rounded-xl border border-[var(--pt-border)] px-3 py-2 text-sm transition-colors hover:bg-[var(--pt-bg-elevated)]"
             >
               <FolderOpen className="w-4 h-4" />
               {t('preferences.openFolder')}
@@ -341,8 +341,8 @@ export function PreferenceSettings() {
           </div>
         </div>
 
-        <div className="mt-4 p-3 bg-blue-50 rounded-md">
-          <p className="text-xs text-blue-800">
+        <div className="mt-4 rounded-xl bg-[var(--pt-brand-soft)] p-3">
+          <p className="text-xs text-[var(--pt-text-secondary)]">
             <strong>{t('common.note')}</strong> {t('preferences.storageNote')}
           </p>
         </div>

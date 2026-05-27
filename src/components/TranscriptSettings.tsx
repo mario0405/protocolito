@@ -90,7 +90,9 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
         setInfomaniakModels(cloudConfig.transcriptionModels);
         setInfomaniakConfigured(cloudConfig.configured);
         if (cloudConfig.transcriptionModels.length > 0) {
-          setInfomaniakModelName((current) => current || cloudConfig.transcriptionModels[0]);
+          setInfomaniakModelName((current) => (
+            current && cloudConfig.transcriptionModels.includes(current) ? current : cloudConfig.transcriptionModels[0]
+          ));
         }
       } catch (error) {
         console.error('Failed to load Infomaniak cloud config:', error);
@@ -140,7 +142,10 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
       return;
     }
 
-    const selectedModel = infomaniakModelName.trim() || infomaniakModels[0] || 'whisper-large-v3';
+    const current = infomaniakModelName.trim();
+    const selectedModel = current && (!infomaniakModels.length || infomaniakModels.includes(current))
+      ? current
+      : (infomaniakModels[0] || current || 'whisper-large-v3');
     setInfomaniakModelName(selectedModel);
     setTranscriptModelConfig({
       ...transcriptModelConfig,
@@ -153,7 +158,10 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
   };
 
   const handleSaveInfomaniakTranscriptConfig = async () => {
-    const selectedModel = infomaniakModelName.trim() || infomaniakModels[0] || 'whisper-large-v3';
+    const current = infomaniakModelName.trim();
+    const selectedModel = current && (!infomaniakModels.length || infomaniakModels.includes(current))
+      ? current
+      : (infomaniakModels[0] || current || 'whisper-large-v3');
     await saveTranscriptConfig({
       ...transcriptModelConfig,
       provider: 'infomaniak',

@@ -65,19 +65,19 @@ export default function SettingsPage() {
   }, [activeTab]);
 
   return (
-    <div className="h-screen bg-stone-50 flex flex-col">
+    <div className="flex h-screen flex-col pt-app-bg">
       {/* Fixed Header */}
-      <div className="sticky top-0 z-10 bg-stone-50 border-b border-stone-200">
+      <div className="pt-glass sticky top-0 z-10 border-x-0 border-t-0">
         <div className="max-w-6xl mx-auto px-8 py-6">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.back()}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-2 text-[var(--pt-text-secondary)] transition-colors hover:text-[var(--pt-text-primary)]"
             >
               <ArrowLeft className="w-5 h-5" />
               <span>{t('common.back')}</span>
             </button>
-              <h1 className="text-3xl font-semibold tracking-normal text-stone-950">{t('settings.title')}</h1>
+              <h1 className="text-3xl font-semibold tracking-normal text-[var(--pt-text-primary)]">{t('settings.title')}</h1>
           </div>
         </div>
       </div>
@@ -85,7 +85,7 @@ export default function SettingsPage() {
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto p-8 pt-6">
-          <div className="relative flex border-b border-gray-200">
+          <div className="pt-glass relative flex overflow-hidden rounded-2xl p-1">
             {TABS.map((tab, index) => {
               const Icon = tab.icon;
               const selected = activeTab === tab.value;
@@ -98,7 +98,7 @@ export default function SettingsPage() {
                   aria-selected={selected}
                   aria-controls={`settings-panel-${tab.value}`}
                   onClick={() => setActiveTab(tab.value)}
-                  className={`relative z-10 flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${selected ? 'text-stone-950' : 'text-stone-500 hover:text-stone-900'
+                  className={`relative z-10 flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium transition-colors ${selected ? 'text-[var(--pt-text-primary)]' : 'text-[var(--pt-text-muted)] hover:text-[var(--pt-text-primary)]'
                     }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -108,7 +108,7 @@ export default function SettingsPage() {
             })}
 
             <motion.div
-              className="absolute bottom-0 z-20 h-0.5 bg-orange-600"
+              className="absolute bottom-1 top-1 z-0 rounded-xl bg-[var(--pt-bg-elevated)] shadow-sm"
               layoutId="underline"
               style={{ left: underlineStyle.left, width: underlineStyle.width }}
               transition={{ type: 'spring', stiffness: 400, damping: 40 }}

@@ -35,9 +35,9 @@ export function SidebarItem({
         'inline-flex items-center justify-center rounded-xl transition-colors',
         collapsed ? 'h-10 w-10' : 'h-10 w-full justify-start gap-2 px-3 text-sm font-medium',
         prominent
-          ? 'bg-[var(--pt-brand)] text-white hover:bg-[var(--pt-brand-strong)]'
-          : 'text-stone-300 hover:bg-white/10 hover:text-white',
-        active && !prominent && 'bg-white/10 text-white',
+          ? 'bg-[var(--pt-brand)] text-white hover:bg-[var(--pt-brand-strong)] pt-coral-glow'
+          : 'text-[var(--pt-text-secondary)] hover:bg-[var(--pt-bg-secondary)] hover:text-[var(--pt-text-primary)]',
+        active && !prominent && 'bg-[var(--pt-bg-secondary)] text-[var(--pt-text-primary)]',
         disabled && 'cursor-not-allowed opacity-70',
       )}
     >

@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Mic, Settings } from 'lucide-react';
 import { LanguageSelect, TemplateSelect } from '@/components/recording/RecordingSelects';
 import { RecordButton } from '@/components/recording/RecordButton';
+import { GlassPanel } from '@/components/ui/protocolito-surface';
 
 interface RecordingCardProps {
   title: string;
@@ -52,14 +53,14 @@ export function RecordingCard({
       initial={{ opacity: 0, y: 16, scale: 0.985 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="w-full max-w-[560px] rounded-2xl border border-[var(--pt-border)] bg-[var(--pt-bg-card)] p-10"
+      className="w-full max-w-[560px]"
     >
-      <div className="flex flex-col gap-8">
+      <GlassPanel className="flex flex-col gap-8 rounded-[var(--pt-radius-xl)] p-10">
         <div className="flex items-start gap-4">
           <motion.div
             animate={isRecording ? { scale: 1 } : { scale: [1, 1.035, 1] }}
             transition={isRecording ? { duration: 0.16 } : { duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-stone-950 text-white"
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-stone-950 text-white shadow-[0_14px_34px_rgba(17,17,17,0.18)] dark:bg-white dark:text-stone-950"
           >
             <Mic className="h-6 w-6" />
           </motion.div>
@@ -107,7 +108,7 @@ export function RecordingCard({
             {settingsLabel}
           </button>
         </div>
-      </div>
+      </GlassPanel>
     </motion.section>
   );
 }

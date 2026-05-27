@@ -100,7 +100,27 @@ jobs:
         with:
           files: release-artifacts/*
           body: |
-            - [Windows](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-Windows-Setup.exe)
-            - [macOS](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-macOS.dmg)
-            - [Linux AppImage](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-Linux.AppImage)
-            - [Linux Debian/Ubuntu](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-Linux.deb)
+            ## Download Protocolito
+
+            Choose the installer for your operating system:
+
+            | Platform | Recommended download |
+            | --- | --- |
+            | Windows | [Protocolito-Windows-Setup.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-Windows-Setup.exe) |
+            | macOS | [Protocolito-macOS.dmg](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-macOS.dmg) |
+            | Linux | [Protocolito-Linux.AppImage](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-Linux.AppImage) |
+            | Debian / Ubuntu | [Protocolito-Linux.deb](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Protocolito-Linux.deb) |
+
+            ## Notes for pilot testers
+
+            - Use the Windows setup file on Windows. It installs the desktop app directly.
+            - The Protocolito Cloud API is available at `https://api.protocolito.ch`.
+            - A valid Protocolito license key is required before recording, importing, transcription, or summarization.
+            - Google Calendar works with approved Google OAuth test users while the Google app is still in testing mode.
+
+            ## Included in this release
+
+            - Polished Apple-style visual refresh across the main app, settings, and search surfaces.
+            - Redesigned conversational meeting search with suggested prompts and a fixed composer.
+            - Improved Infomaniak model settings with allowed company models and safer stale-model handling.
+            - Protocolito Cloud URL normalization from the old raw IP to `https://api.protocolito.ch`.
