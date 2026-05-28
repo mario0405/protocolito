@@ -5,6 +5,8 @@ type TranscriptSegment = {
   id: string;
   text: string;
   timestamp: string;
+  sequence_id: number;
+  chunk_start_time: number;
   audio_start_time: number;
   audio_end_time: number;
   duration: number;
@@ -16,6 +18,7 @@ let startedAt = 0;
 let paused = false;
 let meetingName = '';
 let lastTranscriptAt = 0;
+let sequenceId = 0;
 let chunks: Blob[] = [];
 let transcripts: TranscriptSegment[] = [];
 let hostedTranscriptionEnabled = false;
@@ -44,6 +47,8 @@ function pushTranscript(text: string) {
     id: `segment-${Date.now()}`,
     text,
     timestamp: new Date().toISOString(),
+    sequence_id: sequenceId++,
+    chunk_start_time: lastTranscriptAt,
     audio_start_time: lastTranscriptAt,
     audio_end_time: now,
     duration: Math.max(0, now - lastTranscriptAt),
@@ -152,6 +157,7 @@ async function start(args: Record<string, any>) {
   transcripts = [];
   startedAt = Date.now();
   lastTranscriptAt = 0;
+  sequenceId = 1;
   paused = false;
   meetingName = args.meeting_name || args.meetingName || 'New Meeting';
   hostedTranscriptionEnabled = false;
@@ -204,6 +210,11 @@ async function stop() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      emitLocal('transcription-error', {
+        error: message,
+        userMessage: `Infomaniak transcription failed: ${message}`,
+        actionable: true,
+      });
       pushTranscript(`Infomaniak transcription failed: ${message}`);
     }
   } else {
