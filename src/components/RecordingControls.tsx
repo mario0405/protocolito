@@ -5,7 +5,7 @@ import { appDataDir } from '@tauri-apps/api/path';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { Play, Pause, Square, Mic, AlertCircle, X } from 'lucide-react';
 import { ProcessRequest, SummaryResponse } from '@/types/summary';
-import { listen } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Analytics from '@/lib/analytics';
@@ -199,6 +199,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
 
     // Notify parent immediately (for UI state updates)
     onStopInitiated?.();
+    void emit('recording-stop-requested', {});
 
     setIsStopping(true);
 

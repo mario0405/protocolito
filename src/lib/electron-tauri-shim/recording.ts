@@ -60,6 +60,13 @@ function pushTranscript(text: string) {
   emitLocal('transcript-update', segment);
 }
 
+function emitRecordingEvent<T = unknown>(event: string, payload?: T) {
+  emitLocal(event, payload);
+  window.protocolito?.emit(event, payload).catch((error) => {
+    console.warn(`Failed to broadcast ${event}:`, error);
+  });
+}
+
 function encodeWav(audioBuffer: AudioBuffer) {
   const numberOfChannels = audioBuffer.numberOfChannels;
   const sampleRate = audioBuffer.sampleRate;
@@ -209,8 +216,8 @@ async function start(args: Record<string, any>) {
   };
   recorder.start(1000);
 
-  emitLocal('recording-started', { meeting_name: meetingName });
-  emitLocal('recording-state-changed', { is_recording: true, is_paused: false });
+  emitRecordingEvent('recording-started', { meeting_name: meetingName });
+  emitRecordingEvent('recording-state-changed', { is_recording: true, is_paused: false });
 }
 
 async function stop() {
@@ -271,11 +278,11 @@ async function stop() {
     });
   }
   emitLocal('transcription-complete', {});
-  emitLocal('recording-stopped', {
+  emitRecordingEvent('recording-stopped', {
     message: 'Recording stopped',
     meeting_name: meetingName,
   });
-  emitLocal('recording-state-changed', { is_recording: false, is_paused: false });
+  emitRecordingEvent('recording-state-changed', { is_recording: false, is_paused: false });
 
   return { transcripts, transcriptionError: lastTranscriptionError };
 }
@@ -293,12 +300,12 @@ export async function invokeRecording(command: string, args: Record<string, any>
     case 'pause_recording':
       paused = true;
       recorder?.pause();
-      emitLocal('recording-paused', {});
+      emitRecordingEvent('recording-paused', {});
       return { status: 'success' };
     case 'resume_recording':
       paused = false;
       recorder?.resume();
-      emitLocal('recording-resumed', {});
+      emitRecordingEvent('recording-resumed', {});
       return { status: 'success' };
     case 'is_recording':
       return recorder?.state === 'recording';

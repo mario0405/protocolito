@@ -4,6 +4,7 @@ const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron');
 const { createCommandRegistry } = require('./backend/commands');
 
 let mainWindow;
+let recordingWindow;
 
 if (process.env.PROTOCOLITO_USER_DATA_DIR) {
   app.setPath('userData', process.env.PROTOCOLITO_USER_DATA_DIR);
@@ -92,10 +93,74 @@ function createWindow() {
   }
 }
 
+function broadcastToWindows(event, payload, exceptWebContents) {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    if (!window.isDestroyed() && window.webContents !== exceptWebContents) {
+      window.webContents.send('protocolito:event', { event, payload });
+    }
+  });
+}
+
+function createRecordingWindow() {
+  if (recordingWindow && !recordingWindow.isDestroyed()) {
+    recordingWindow.show();
+    recordingWindow.focus();
+    return;
+  }
+
+  recordingWindow = new BrowserWindow({
+    width: 280,
+    height: 96,
+    minWidth: 280,
+    minHeight: 96,
+    maxWidth: 280,
+    maxHeight: 96,
+    title: 'Recording',
+    icon: resolveAppIcon(),
+    backgroundColor: '#ffffff',
+    alwaysOnTop: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+
+  const devUrl = process.env.ELECTRON_START_URL;
+  if (devUrl) {
+    recordingWindow.loadURL(`${devUrl}?window=recording-mini`);
+  } else {
+    recordingWindow.loadFile(resolveStaticEntry(), {
+      query: { window: 'recording-mini' },
+    });
+  }
+
+  recordingWindow.on('closed', () => {
+    recordingWindow = null;
+  });
+}
+
+function closeRecordingWindow() {
+  if (recordingWindow && !recordingWindow.isDestroyed()) {
+    recordingWindow.close();
+  }
+  recordingWindow = null;
+}
+
 app.whenReady().then(() => {
+  const handleRecordingWindowEvent = (event) => {
+    if (event === 'recording-started') createRecordingWindow();
+    if (event === 'recording-stop-requested' || event === 'recording-stopped') closeRecordingWindow();
+  };
+
   const emitToRenderer = (event, payload) => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    mainWindow.webContents.send('protocolito:event', { event, payload });
+    handleRecordingWindowEvent(event);
+    broadcastToWindows(event, payload);
   };
 
   const registry = createCommandRegistry({ app, shell, emitToRenderer });
@@ -104,8 +169,9 @@ app.whenReady().then(() => {
     return registry.invoke(command, args);
   });
 
-  ipcMain.on('protocolito:emit', (_event, payload) => {
-    emitToRenderer(payload.event, payload.payload);
+  ipcMain.on('protocolito:emit', (event, payload) => {
+    handleRecordingWindowEvent(payload.event);
+    broadcastToWindows(payload.event, payload.payload, event.sender);
   });
 
   createWindow();

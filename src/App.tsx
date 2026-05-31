@@ -29,6 +29,7 @@ import MeetingDetails from '@/app/meeting-details/page';
 import SettingsPage from '@/app/settings/page';
 import MeetingSearchPage from '@/app/search/page';
 import { PageShell } from '@/components/PageShell';
+import { RecordingMiniWindow } from '@/components/RecordingMiniWindow';
 
 /* SplashScreen is now in its own component file */
 
@@ -264,5 +265,9 @@ function AppShell() {
 }
 
 export default function App() {
+  if (new URLSearchParams(window.location.search).get('window') === 'recording-mini') {
+    return <RecordingMiniWindow />;
+  }
+
   return <AppShell />;
 }
