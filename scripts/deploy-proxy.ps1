@@ -16,7 +16,7 @@ try {
   Pop-Location
 }
 
-ssh -i $KeyPath "$User@$HostName" "sudo mkdir -p $RemoteDir && sudo chown $User:$User $RemoteDir"
+ssh -i $KeyPath "$User@$HostName" "sudo mkdir -p $RemoteDir && sudo chown ${User}:${User} $RemoteDir"
 scp -i $KeyPath $archive "$User@$HostName`:$RemoteDir/protocolito-proxy.tar.gz"
 ssh -i $KeyPath "$User@$HostName" "cd $RemoteDir && tar -xzf protocolito-proxy.tar.gz && npm install --omit=dev && test -f .env || cp .env.example .env"
 

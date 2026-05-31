@@ -1,12 +1,4 @@
-const BUILTIN_MODELS = [
-  {
-    name: 'gemma3:1b',
-    display_name: 'Gemma 3 1B',
-    size: 0,
-    status: { type: 'ready' },
-    description: 'Small local summary model placeholder for Electron builds.',
-  },
-];
+const { listLocalLlmModels } = require('./local-llm');
 
 async function listOllamaModels(endpoint) {
   try {
@@ -25,8 +17,8 @@ async function listOllamaModels(endpoint) {
   }
 }
 
-function builtinModels() {
-  return BUILTIN_MODELS;
+function builtinModels(app) {
+  return listLocalLlmModels(app);
 }
 
 module.exports = { listOllamaModels, builtinModels };

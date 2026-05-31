@@ -16,6 +16,7 @@ import { DownloadProgressToastProvider } from '@/components/shared/DownloadProgr
 import { UpdateCheckProvider } from '@/components/UpdateCheckProvider';
 import { RecordingPostProcessingProvider } from '@/contexts/RecordingPostProcessingProvider';
 import { CalendarMeetingReminder } from '@/components/CalendarMeetingReminder';
+import { RecordingProcessingOverlay } from '@/components/RecordingProcessingOverlay';
 import { ImportAudioDialog, ImportDropOverlay } from '@/components/ImportAudio';
 import { ImportDialogProvider } from '@/contexts/ImportDialogContext';
 import { SidebarProvider } from '@/components/Sidebar/SidebarProvider';
@@ -230,6 +231,7 @@ function AppShell() {
                       <RecordingPostProcessingProvider>
                         <ImportDialogProvider onOpen={handleOpenImportDialog}>
                           <DownloadProgressToastProvider />
+                          <RecordingProcessingOverlay />
                           {showStartupSplash || isCheckingOnboarding ? (
                             <SplashScreen />
                           ) : showOnboarding ? (

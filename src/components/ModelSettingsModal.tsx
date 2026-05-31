@@ -38,7 +38,7 @@ function localSummaryConfig(config: ModelConfig): ModelConfig {
   return {
     ...config,
     provider: 'builtin-ai',
-    model: 'gemma3:1b',
+    model: 'qwen2.5-0.5b-instruct-q4',
     apiKey: null,
     ollamaEndpoint: null,
   };
@@ -191,7 +191,7 @@ export function ModelSettingsModal({
     setModelConfig((prev: ModelConfig) => ({
       ...localSummaryConfig(prev),
       provider,
-      model: provider === 'builtin-ai' ? 'gemma3:1b' : models[0]?.name || '',
+      model: provider === 'builtin-ai' ? 'qwen2.5-0.5b-instruct-q4' : models[0]?.name || '',
       apiKey: null,
       ollamaEndpoint: provider === 'ollama' ? ollamaEndpoint.trim() || null : null,
     }));
@@ -199,17 +199,9 @@ export function ModelSettingsModal({
 
   const downloadRecommendedModel = async () => {
     try {
-      await invoke('pull_ollama_model', { modelName: 'gemma3:1b' });
-      await fetchOllamaModels(true);
+      await invoke('builtin_ai_download_model', { modelName: 'qwen2.5-0.5b-instruct-q4' });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to download model';
-      if (isOllamaNotInstalledError(message)) {
-        toast.error('Ollama is not installed', {
-          description: 'Install Ollama before downloading local summary models.',
-        });
-        setOllamaNotInstalled(true);
-        return;
-      }
       toast.error(message);
     }
   };
@@ -380,34 +372,34 @@ export function ModelSettingsModal({
                         variant="outline"
                         size="sm"
                         onClick={downloadRecommendedModel}
-                        disabled={isDownloading('gemma3:1b')}
+                        disabled={isDownloading('qwen2.5-0.5b-instruct-q4')}
                         className="w-full"
                       >
-                        {isDownloading('gemma3:1b') ? (
+                        {isDownloading('qwen2.5-0.5b-instruct-q4') ? (
                           <>
                             <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                            Downloading gemma3:1b...
+                            Downloading Qwen 2.5 0.5B...
                           </>
                         ) : (
                           <>
                             <Download className="mr-2 h-4 w-4" />
-                            Download gemma3:1b
+                            Download Qwen 2.5 0.5B
                           </>
                         )}
                       </Button>
                     )}
-                    {isDownloading('gemma3:1b') && getProgress('gemma3:1b') !== undefined && (
+                    {isDownloading('qwen2.5-0.5b-instruct-q4') && getProgress('qwen2.5-0.5b-instruct-q4') !== undefined && (
                       <div className="bg-white rounded-md border p-3">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-blue-600">Downloading gemma3:1b</span>
+                          <span className="text-sm font-medium text-blue-600">Downloading Qwen 2.5 0.5B</span>
                           <span className="text-sm font-semibold text-blue-600">
-                            {Math.round(getProgress('gemma3:1b') || 0)}%
+                            {Math.round(getProgress('qwen2.5-0.5b-instruct-q4') || 0)}%
                           </span>
                         </div>
                         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-blue-600 rounded-full transition-all duration-300"
-                            style={{ width: `${getProgress('gemma3:1b') || 0}%` }}
+                            style={{ width: `${getProgress('qwen2.5-0.5b-instruct-q4') || 0}%` }}
                           />
                         </div>
                       </div>

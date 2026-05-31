@@ -110,7 +110,7 @@ export function SettingsModals({
 
                     <select
                       className="flex-1 px-3 py-2 text-sm bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                      value={modelConfig.provider === 'ollama' ? modelConfig.model : (modelConfig.model || 'gemma3:1b')}
+                      value={modelConfig.provider === 'ollama' ? modelConfig.model : (modelConfig.model || 'qwen2.5-0.5b-instruct-q4')}
                       onChange={(e) => setModelConfig((prev: ModelConfig) => ({ ...prev, model: e.target.value }))}
                     >
                       {modelOptions[modelConfig.provider === 'ollama' ? 'ollama' : 'builtin-ai'].map((model: string) => (

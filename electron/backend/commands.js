@@ -8,6 +8,20 @@ const { JsonStore, ensureDir } = require('./json-store');
 const { generateSummary } = require('./summary');
 const { listOllamaModels, builtinModels } = require('./models');
 const {
+  getWhisperModelsDir,
+  listWhisperModels,
+  transcribeWithWhisperCli,
+  validateWhisperReady,
+  downloadWhisperModel,
+} = require('./local-transcription');
+const {
+  deleteLocalLlmModel,
+  downloadLocalLlmModel,
+  getLlamaModelsDir,
+  listLocalLlmModels,
+  validateLocalLlmReady,
+} = require('./local-llm');
+const {
   callInfomaniakTranscription,
   bearerAuthorization,
   infomaniakChatEndpoint,
@@ -17,8 +31,12 @@ const {
   uniqueStrings,
 } = require('./infomaniak');
 const {
+  connectCloudIntegration,
   getCloudModels,
+  getCloudIntegrationStatus,
+  getCloudIntegrations,
   readProtocolitoCloudConfig,
+  sendCloudIntegrationSummary,
   transcribeWithCloud,
 } = require('./protocolito-cloud');
 const {
@@ -437,6 +455,27 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
     };
   }
 
+  function companyTranscriptionModels() {
+    const models = getAccessConfig().company?.transcriptionModels;
+    return Array.isArray(models) ? models.map((item) => String(item || '').trim()).filter(Boolean) : [];
+  }
+
+  function allowedTranscriptionModel(config) {
+    const allowed = companyTranscriptionModels();
+    const selected = normalizeInfomaniakTranscriptionModel(config.modelName || config.model || '');
+    return selected && (!allowed.length || allowed.includes(selected))
+      ? selected
+      : (normalizeInfomaniakTranscriptionModel(allowed[0]) || selected || 'whisper');
+  }
+
+  function normalizeInfomaniakTranscriptionModel(model) {
+    const value = String(model || '').trim();
+    if (/^(large-v3|large-v3-turbo|whisper-large-v3|whisper-large-v3-turbo)$/i.test(value)) {
+      return 'whisper';
+    }
+    return value;
+  }
+
   function saveAccessConfig(config) {
     const previous = getAccessConfig();
     const next = {
@@ -569,7 +608,7 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
       return { status: 'success' };
     },
     import_and_initialize_database: () => ({ status: 'success' }),
-    builtin_ai_get_recommended_model: () => 'gemma3:1b',
+    builtin_ai_get_recommended_model: () => 'qwen2.5-0.5b-instruct-q4',
 
     api_get_meetings: () => db.listMeetings(),
     api_get_meeting: ({ meetingId }) => {
@@ -657,7 +696,16 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
       emitToRenderer('model-config-updated', config);
       return { status: 'success' };
     },
-    api_get_transcript_config: () => normalizeTranscriptConfig(db.getSetting('transcriptConfig', null)),
+    api_get_transcript_config: () => {
+      const config = normalizeTranscriptConfig(db.getSetting('transcriptConfig', null));
+      if (config.provider !== 'infomaniak') return config;
+      const model = allowedTranscriptionModel(config);
+      return {
+        ...config,
+        model,
+        modelName: model,
+      };
+    },
     api_save_transcript_config: (args) => {
       const config = normalizeTranscriptConfig(args);
       db.setSetting('transcriptConfig', config);
@@ -725,6 +773,45 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
       };
     },
     api_check_access: ({ action }) => checkAccess(action),
+
+    api_integrations_get_catalog: async () => getCloudIntegrations(app, getAccessCloudOverride()),
+    api_integrations_connect: async ({ provider }) => {
+      const link = await connectCloudIntegration({
+        app,
+        provider,
+        deviceId: getDeviceId(),
+        configOverride: getAccessCloudOverride(),
+      });
+      const redirectUrl = link.redirectUrl || link.redirect_url || link.url || link.link || null;
+      if (redirectUrl) await shell.openExternal(redirectUrl);
+      return {
+        status: link.status || 'started',
+        provider,
+        connectedAccountId: link.connectedAccountId || link.connected_account_id || link.id || null,
+        redirectUrl,
+      };
+    },
+    api_integrations_get_status: async ({ provider, connectedAccountId }) => getCloudIntegrationStatus({
+      app,
+      provider,
+      connectedAccountId,
+      deviceId: getDeviceId(),
+      configOverride: getAccessCloudOverride(),
+    }),
+    api_integrations_send_summary: async ({ config, payload }) => {
+      const provider = String(config?.provider || '').trim();
+      if (!provider) throw new Error('Integration provider is missing.');
+
+      return sendCloudIntegrationSummary({
+        app,
+        provider,
+        connectedAccountId: String(config?.connectedAccountId || '').trim(),
+        target: String(config?.target || '').trim(),
+        payload,
+        deviceId: getDeviceId(),
+        configOverride: getAccessCloudOverride(),
+      });
+    },
 
     api_google_calendar_get_status: () => {
       const state = db.getGoogleCalendarState();
@@ -942,60 +1029,144 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
     get_ollama_models: async ({ endpoint }) => listOllamaModels(endpoint),
     pull_ollama_model: ({ modelName }) => ({ status: 'unsupported', modelName }),
     delete_ollama_model: ({ modelName }) => ({ status: 'unsupported', modelName }),
-    builtin_ai_list_models: () => builtinModels(),
-    builtin_ai_get_model_info: ({ modelName }) => builtinModels().find((model) => model.name === modelName) || null,
-    builtin_ai_is_model_ready: () => true,
-    builtin_ai_get_available_summary_model: () => builtinModels()[0],
-    builtin_ai_download_model: ({ modelName }) => {
-      emitToRenderer('builtin-ai-download-complete', { modelName });
-      return { status: 'success' };
+    builtin_ai_list_models: () => builtinModels(app),
+    builtin_ai_get_model_info: ({ modelName }) => builtinModels(app).find((model) => model.name === modelName) || null,
+    builtin_ai_is_model_ready: ({ modelName }) => {
+      try {
+        const config = normalizeModelConfig(db.getSetting('modelConfig', null));
+        validateLocalLlmReady(app, modelName || config.model);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    builtin_ai_get_available_summary_model: () => {
+      const available = builtinModels(app).find((model) => model.status?.type === 'available');
+      return available?.name || null;
+    },
+    builtin_ai_download_model: async ({ modelName }) => {
+      try {
+        await downloadLocalLlmModel(app, modelName, (progress, downloadedMb, totalMb) => {
+          emitToRenderer('builtin-ai-download-progress', {
+            model: modelName,
+            progress,
+            downloaded_mb: downloadedMb || 0,
+            total_mb: totalMb || 0,
+            speed_mbps: 0,
+            status: progress >= 100 ? 'completed' : 'downloading',
+          });
+        });
+        emitToRenderer('builtin-ai-download-progress', {
+          model: modelName,
+          progress: 100,
+          downloaded_mb: 0,
+          total_mb: 0,
+          speed_mbps: 0,
+          status: 'completed',
+        });
+        emitToRenderer('builtin-ai-download-complete', { modelName });
+        return { status: 'success', modelName };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        emitToRenderer('builtin-ai-download-progress', {
+          model: modelName,
+          progress: 0,
+          downloaded_mb: 0,
+          total_mb: 0,
+          speed_mbps: 0,
+          status: 'error',
+          error: message,
+        });
+        emitToRenderer('builtin-ai-download-error', { modelName, error: message });
+        throw error;
+      }
     },
     builtin_ai_cancel_download: () => ({ status: 'cancelled' }),
-    builtin_ai_delete_model: () => ({ status: 'success' }),
-    builtin_ai_get_models_directory: () => userDir('models'),
+    builtin_ai_delete_model: ({ modelName }) => deleteLocalLlmModel(app, modelName),
+    builtin_ai_get_models_directory: () => getLlamaModelsDir(app),
 
     whisper_init: () => ({ status: 'success' }),
-    whisper_get_available_models: () => [],
-    whisper_load_model: ({ modelName }) => ({ status: 'success', modelName }),
-    whisper_get_current_model: () => null,
-    whisper_is_model_loaded: () => false,
-    whisper_transcribe_audio: () => ({ text: '' }),
-    whisper_get_models_directory: () => userDir('models', 'whisper'),
-    whisper_download_model: ({ modelName }) => {
-      emitToRenderer('model-download-complete', { modelName });
-      return { status: 'success' };
+    whisper_get_available_models: () => listWhisperModels(app),
+    whisper_load_model: ({ modelName }) => {
+      validateWhisperReady(app, modelName);
+      return { status: 'success', modelName };
+    },
+    whisper_get_current_model: () => normalizeTranscriptConfig(db.getSetting('transcriptConfig', null)).model || null,
+    whisper_is_model_loaded: () => {
+      try {
+        const config = normalizeTranscriptConfig(db.getSetting('transcriptConfig', null));
+        validateWhisperReady(app, config.model);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    whisper_transcribe_audio: async (args) => {
+      const config = normalizeTranscriptConfig(db.getSetting('transcriptConfig', null));
+      if (config.provider !== 'localWhisper') return { text: '' };
+      return transcribeWithWhisperCli({
+        app,
+        audioData: args.audioData,
+        mimeType: args.mimeType,
+        fileName: args.fileName,
+        modelName: config.model,
+      });
+    },
+    whisper_get_models_directory: () => getWhisperModelsDir(app),
+    whisper_download_model: async ({ modelName }) => {
+      try {
+        await downloadWhisperModel(app, modelName, (progress) => {
+          emitToRenderer('model-download-progress', { modelName, progress });
+        });
+        emitToRenderer('model-download-complete', { modelName });
+        return { status: 'success', modelName };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        emitToRenderer('model-download-error', { modelName, error: message });
+        throw error;
+      }
     },
     whisper_cancel_download: () => ({ status: 'cancelled' }),
     whisper_delete_corrupted_model: () => true,
-    whisper_has_available_models: () => false,
-    whisper_validate_model_ready: () => false,
+    whisper_has_available_models: () => listWhisperModels(app).some((model) => model.status === 'Available'),
+    whisper_validate_model_ready: () => {
+      const config = normalizeTranscriptConfig(db.getSetting('transcriptConfig', null));
+      validateWhisperReady(app, config.model);
+      return true;
+    },
 
     parakeet_init: () => ({ status: 'success' }),
-    parakeet_get_available_models: () => [{ name: 'browser-media', status: { type: 'ready' } }],
+    parakeet_get_available_models: () => [],
     parakeet_load_model: ({ modelName }) => ({ status: 'success', modelName }),
     parakeet_get_current_model: () => null,
     parakeet_is_model_loaded: () => false,
-    parakeet_transcribe_audio: () => ({ text: '' }),
+    parakeet_transcribe_audio: () => {
+      throw new Error('Parakeet local transcription is not available in the Electron desktop build yet. Use local Whisper with whisper.cpp or Infomaniak.');
+    },
     parakeet_get_models_directory: () => userDir('models', 'parakeet'),
     parakeet_download_model: ({ modelName }) => {
-      emitToRenderer('parakeet-model-download-complete', { modelName });
-      return { status: 'success' };
+      const error = 'Parakeet download is not available in the Electron desktop build yet.';
+      emitToRenderer('parakeet-model-download-error', { modelName, error });
+      throw new Error(error);
     },
     parakeet_retry_download: ({ modelName }) => handlers.parakeet_download_model({ modelName }),
     parakeet_cancel_download: () => ({ status: 'cancelled' }),
     parakeet_delete_corrupted_model: () => true,
-    parakeet_has_available_models: () => true,
-    parakeet_validate_model_ready: () => true,
+    parakeet_has_available_models: () => false,
+    parakeet_validate_model_ready: () => {
+      throw new Error('Parakeet local transcription is not available in the Electron desktop build yet. Use local Whisper with whisper.cpp or Infomaniak.');
+    },
     infomaniak_transcribe_audio: async (args) => {
       const config = normalizeTranscriptConfig(db.getSetting('transcriptConfig', null));
       if (config.provider !== 'infomaniak') return { configured: false, text: '' };
+      const model = allowedTranscriptionModel(config);
       const accessCloud = getAccessCloudOverride();
       const cloud = readProtocolitoCloudConfig(app, accessCloud);
       if (cloud.configured) {
         return transcribeWithCloud({
           app,
           configOverride: accessCloud,
-          model: config.modelName || config.model || 'whisper-large-v3',
+          model,
           audioData: args.audioData,
           mimeType: args.mimeType,
           fileName: args.fileName,
@@ -1006,7 +1177,7 @@ function createCommandRegistry({ app, shell, emitToRenderer }) {
       return callInfomaniakTranscription({
         productId: ownerInfomaniakConfig().productId,
         apiKey: ownerInfomaniakConfig().apiKey,
-        model: config.modelName || config.model || ownerInfomaniakConfig().transcriptionModels[0] || 'whisper-large-v3',
+        model,
         audioData: args.audioData,
         mimeType: args.mimeType,
         fileName: args.fileName,

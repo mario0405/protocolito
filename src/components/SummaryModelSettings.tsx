@@ -15,7 +15,7 @@ interface SummaryModelSettingsProps {
 export function SummaryModelSettings({ refetchTrigger }: SummaryModelSettingsProps) {
   const [modelConfig, setModelConfig] = useState<ModelConfig>({
     provider: 'builtin-ai',
-    model: 'gemma3:1b',
+    model: 'qwen2.5-0.5b-instruct-q4',
     whisperModel: 'large-v3-turbo',
     apiKey: null,
     ollamaEndpoint: null,

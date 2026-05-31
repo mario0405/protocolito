@@ -416,9 +416,40 @@ export function ModelManager({
   const basicModels = models.filter(m => basicModelNames.includes(m.name))
     .sort((a, b) => basicModelNames.indexOf(a.name) - basicModelNames.indexOf(b.name));
   const advancedModels = models.filter(m => !basicModelNames.includes(m.name));
+  const localEngineMissing = models.some(model =>
+    typeof model.status === 'object'
+    && 'Error' in model.status
+    && String(model.status.Error).toLowerCase().includes('engine missing')
+  );
+
+  const openModelsFolder = async () => {
+    try {
+      await WhisperAPI.openModelsFolder();
+    } catch (err) {
+      toast.error('Could not open model folder', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
 
   return (
     <div className={`space-y-3 ${className}`}>
+      {localEngineMissing && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <div className="font-semibold">Local Whisper setup required</div>
+          <p className="mt-1 text-amber-800">
+            This desktop build does not bundle a local Whisper engine yet. Use Infomaniak for pilot testing, or install whisper.cpp and set PROTOCOLITO_WHISPER_CLI before using these models.
+          </p>
+          <button
+            type="button"
+            onClick={openModelsFolder}
+            className="mt-3 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-100"
+          >
+            Open model folder
+          </button>
+        </div>
+      )}
+
       {/* Basic Models */}
       <div className="space-y-3">
         {basicModels.map((model) => {
@@ -521,6 +552,10 @@ function ModelCard({
   const isAvailable = model.status === 'Available';
   const isMissing = model.status === 'Missing';
   const isError = typeof model.status === 'object' && 'Error' in model.status;
+  const errorText = isError && typeof model.status === 'object' && 'Error' in model.status
+    ? String(model.status.Error)
+    : '';
+  const isSetupRequired = errorText.toLowerCase().includes('engine missing');
   const isCorrupted = typeof model.status === 'object' && 'Corrupted' in model.status;
   const downloadProgress =
     typeof model.status === 'object' && 'Downloading' in model.status
@@ -645,7 +680,7 @@ function ModelCard({
               </button>
             )}
 
-            {downloadProgress === null && isError && (
+            {downloadProgress === null && isError && !isSetupRequired && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -655,6 +690,12 @@ function ModelCard({
               >
                 {t('common.retry')}
               </button>
+            )}
+
+            {isSetupRequired && (
+              <span className="rounded-md bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-800">
+                Setup needed
+              </span>
             )}
 
             {isCorrupted && (
@@ -724,6 +765,14 @@ function ModelCard({
               )}
             </p>
           </motion.div>
+        )}
+
+        {errorText && (
+          <p className="mt-3 border-t border-gray-200 pt-3 text-xs text-gray-500">
+            {isSetupRequired
+              ? 'Local engine missing. Install whisper.cpp first, then place the matching ggml model file in the model folder.'
+              : errorText}
+          </p>
         )}
       </div>
     </motion.div>

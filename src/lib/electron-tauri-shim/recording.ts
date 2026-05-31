@@ -22,6 +22,8 @@ let sequenceId = 0;
 let chunks: Blob[] = [];
 let transcripts: TranscriptSegment[] = [];
 let hostedTranscriptionEnabled = false;
+let transcriptionProvider: string | null = null;
+let lastTranscriptionError: string | null = null;
 
 function isRecordingCommand(command: string) {
   return [
@@ -102,6 +104,14 @@ function encodeWav(audioBuffer: AudioBuffer) {
   return buffer;
 }
 
+async function blobToByteArray(blob: Blob) {
+  return Array.from(new Uint8Array(await blob.arrayBuffer()));
+}
+
+function arrayBufferToByteArray(buffer: ArrayBuffer) {
+  return Array.from(new Uint8Array(buffer));
+}
+
 async function prepareAudioForInfomaniak(blob: Blob) {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -110,14 +120,14 @@ async function prepareAudioForInfomaniak(blob: Blob) {
     const decoded = await context.decodeAudioData(source.slice(0));
     await context.close();
     return {
-      audioData: encodeWav(decoded),
+      audioData: arrayBufferToByteArray(encodeWav(decoded)),
       mimeType: 'audio/wav',
       fileName: 'recording.wav',
     };
   } catch (error) {
     console.warn('Failed to convert recording to WAV, sending captured audio as-is.', error);
     return {
-      audioData: await blob.arrayBuffer(),
+      audioData: await blobToByteArray(blob),
       mimeType: blob.type || 'audio/webm',
       fileName: blob.type.includes('ogg') ? 'recording.ogg' : 'recording.webm',
     };
@@ -126,7 +136,25 @@ async function prepareAudioForInfomaniak(blob: Blob) {
 
 async function transcribeWithInfomaniak(blob: Blob) {
   const payload = await prepareAudioForInfomaniak(blob);
-  return requireBridge().invoke<{ configured: boolean; text: string }>('infomaniak_transcribe_audio', payload as any);
+  try {
+    return await requireBridge().invoke<{ configured: boolean; text: string }>('infomaniak_transcribe_audio', payload as any);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const cleaned = message.replace(/^Error invoking remote method 'protocolito:invoke': Error:\s*/i, '');
+    throw new Error(cleaned || message);
+  }
+}
+
+async function transcribeWithLocalProvider(blob: Blob, provider: string) {
+  const payload = await prepareAudioForInfomaniak(blob);
+  const command = provider === 'parakeet' ? 'parakeet_transcribe_audio' : 'whisper_transcribe_audio';
+  try {
+    return await requireBridge().invoke<{ text: string }>(command, payload as any);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const cleaned = message.replace(/^Error invoking remote method 'protocolito:invoke': Error:\s*/i, '');
+    throw new Error(cleaned || message);
+  }
 }
 
 async function enumerateDevices() {
@@ -161,9 +189,12 @@ async function start(args: Record<string, any>) {
   paused = false;
   meetingName = args.meeting_name || args.meetingName || 'New Meeting';
   hostedTranscriptionEnabled = false;
+  transcriptionProvider = null;
+  lastTranscriptionError = null;
 
   try {
     const config = await requireBridge().invoke<{ provider?: string }>('api_get_transcript_config', {});
+    transcriptionProvider = config?.provider || null;
     hostedTranscriptionEnabled = config?.provider === 'infomaniak';
   } catch {
     hostedTranscriptionEnabled = false;
@@ -178,9 +209,6 @@ async function start(args: Record<string, any>) {
   };
   recorder.start(1000);
 
-  if (!hostedTranscriptionEnabled) {
-    pushTranscript(`Recording started for ${meetingName}. Configure Infomaniak transcription in Settings to replace this browser capture note with model-generated transcript text.`);
-  }
   emitLocal('recording-started', { meeting_name: meetingName });
   emitLocal('recording-state-changed', { is_recording: true, is_paused: false });
 }
@@ -210,15 +238,37 @@ async function stop() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      lastTranscriptionError = message;
       emitLocal('transcription-error', {
         error: message,
         userMessage: `Infomaniak transcription failed: ${message}`,
-        actionable: true,
+        actionable: false,
       });
-      pushTranscript(`Infomaniak transcription failed: ${message}`);
+    }
+  } else if (transcriptionProvider === 'localWhisper' || transcriptionProvider === 'parakeet') {
+    try {
+      const result = await transcribeWithLocalProvider(recordingBlob, transcriptionProvider);
+      if (result.text?.trim()) {
+        pushTranscript(result.text.trim());
+      } else {
+        throw new Error('Local transcription returned no text.');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      lastTranscriptionError = message;
+      emitLocal('transcription-error', {
+        error: message,
+        userMessage: `Local transcription failed: ${message}`,
+        actionable: false,
+      });
     }
   } else {
-    pushTranscript('Recording stopped. Audio was captured locally by Electron; configure Infomaniak transcription in Settings to generate Swiss German transcript text.');
+    lastTranscriptionError = 'No transcription provider is configured.';
+    emitLocal('transcription-error', {
+      error: lastTranscriptionError,
+      userMessage: lastTranscriptionError,
+      actionable: false,
+    });
   }
   emitLocal('transcription-complete', {});
   emitLocal('recording-stopped', {
@@ -227,7 +277,7 @@ async function stop() {
   });
   emitLocal('recording-state-changed', { is_recording: false, is_paused: false });
 
-  return { transcripts };
+  return { transcripts, transcriptionError: lastTranscriptionError };
 }
 
 export async function invokeRecording(command: string, args: Record<string, any> = {}) {
@@ -269,6 +319,7 @@ export async function invokeRecording(command: string, args: Record<string, any>
         chunks_in_queue: 0,
         is_processing: false,
         last_activity_ms: startedAt ? Date.now() - startedAt : 0,
+        error: lastTranscriptionError,
       };
     case 'get_audio_devices':
       return enumerateDevices();

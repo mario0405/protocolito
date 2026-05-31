@@ -49,16 +49,14 @@ function MeetingDetailsContent() {
     error: transcriptError,
   } = usePaginatedTranscripts({ meetingId: meetingId || '' });
 
-  // Check if gemma3:1b model is available in Ollama
-  const checkForGemmaModel = useCallback(async (): Promise<boolean> => {
+  const getAvailableLocalSummaryModel = useCallback(async (): Promise<string | null> => {
     try {
-      const models = await invoke('get_ollama_models', { endpoint: null }) as any[];
-      const hasGemma = models.some((m: any) => m.name === 'gemma3:1b');
-      console.log('🔍 Checked for gemma3:1b:', hasGemma);
-      return hasGemma;
+      const model = await invoke<string | null>('builtin_ai_get_available_summary_model');
+      console.log('Checked for available built-in summary model:', model);
+      return model;
     } catch (error) {
-      console.error('❌ Failed to check Ollama models:', error);
-      return false;
+      console.error('Failed to check built-in summary model:', error);
+      return null;
     }
   }, []);
 
@@ -92,15 +90,14 @@ function MeetingDetailsContent() {
         return;
       }
 
-      // DB is empty - check if gemma3:1b exists as fallback
-      const hasGemma = await checkForGemmaModel();
+      const availableLocalModel = await getAvailableLocalSummaryModel();
 
-      if (hasGemma) {
-        console.log('💾 DB empty, using gemma3:1b as initial default');
+      if (availableLocalModel) {
+        console.log('DB empty, using available built-in summary model:', availableLocalModel);
 
         await invoke('api_save_model_config', {
-          provider: 'ollama',
-          model: '',
+          provider: 'builtin-ai',
+          model: availableLocalModel,
           whisperModel: 'large-v3',
           apiKey: null,
           ollamaEndpoint: null,
@@ -108,14 +105,14 @@ function MeetingDetailsContent() {
 
         setShouldAutoGenerate(true);
       } else {
-        console.log('⚠️ No model configured and gemma3:1b not found');
+        console.log('No configured or downloaded summary model found');
       }
     } catch (error) {
       console.error('❌ Failed to setup auto-generation:', error);
     }
 
     setHasCheckedAutoGen(true);
-  }, [hasCheckedAutoGen, checkForGemmaModel, source, isAutoSummary]);
+  }, [hasCheckedAutoGen, getAvailableLocalSummaryModel, source, isAutoSummary]);
 
   // Sync meeting metadata from pagination hook to meeting details state
   useEffect(() => {

@@ -102,8 +102,8 @@ const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 export function ConfigProvider({ children }: { children: ReactNode }) {
   // Model configuration state
   const [modelConfig, setModelConfig] = useState<ModelConfig>({
-    provider: 'ollama',
-    model: 'llama3.2:latest',
+    provider: 'builtin-ai',
+    model: 'qwen2.5-0.5b-instruct-q4',
     whisperModel: DEFAULT_WHISPER_MODEL,
     ollamaEndpoint: null
   });
@@ -303,7 +303,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   // Calculate model options based on available models
   const modelOptions: Record<ModelConfig['provider'], string[]> = {
     ollama: models.map(model => model.name),
-    'builtin-ai': ['gemma3:1b'],
+    'builtin-ai': ['qwen2.5-0.5b-instruct-q4', 'qwen2.5-1.5b-instruct-q4', 'qwen2.5-3b-instruct-q4'],
     infomaniak: [],
   };
 

@@ -297,7 +297,7 @@ export function useDownloadProgressToast() {
     };
   }, [updateDownload, cleanupDownload]);
 
-  // Listen to Built-in AI (Gemma) download events
+  // Listen to built-in local summary model download events.
   useEffect(() => {
     const unlisten = listen<{
       model: string;

@@ -1,5 +1,6 @@
 const { bearerAuthorization, infomaniakChatEndpoint, ownerInfomaniakConfig } = require('./infomaniak');
 const { readProtocolitoCloudConfig, summarizeWithCloud } = require('./protocolito-cloud');
+const { generateWithLocalLlm } = require('./local-llm');
 
 function buildFallbackSummary(text, customPrompt) {
   const lines = text
@@ -77,6 +78,45 @@ async function callOpenAiCompatible({ endpoint, apiKey, model, text, prompt }) {
   };
 }
 
+async function callOllama({ endpoint, model, text, prompt }) {
+  const base = (endpoint || 'http://localhost:11434').replace(/\/+$/, '');
+  const response = await fetch(`${base}/api/chat`, {
+    method: 'POST',
+    signal: AbortSignal.timeout(30000),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      stream: false,
+      options: {
+        temperature: 0.2,
+      },
+      messages: [
+        {
+          role: 'system',
+          content: prompt,
+        },
+        {
+          role: 'user',
+          content: `Transcript:\n\n${text}`,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ollama returned ${response.status}: ${await response.text()}`);
+  }
+
+  const data = await response.json();
+  const markdown = data.message?.content || data.response || '';
+  return {
+    MeetingName: 'Meeting Summary',
+    markdown,
+  };
+}
+
 async function generateSummary({ app, db, args }) {
   const config = db.getSetting('modelConfig', {});
   const accessConfig = db.getSetting('accessConfig', {}) || {};
@@ -117,6 +157,21 @@ async function generateSummary({ app, db, args }) {
         prompt,
       });
     }
+  } else if (provider === 'ollama') {
+    if (!model) throw new Error('No Ollama model selected.');
+    summary = await callOllama({
+      endpoint: config.ollamaEndpoint || null,
+      model,
+      text,
+      prompt,
+    });
+  } else if (provider === 'builtin-ai') {
+    summary = await generateWithLocalLlm({
+      app,
+      modelName: model || config.model,
+      text,
+      prompt,
+    });
   } else {
     summary = buildFallbackSummary(text, prompt);
   }

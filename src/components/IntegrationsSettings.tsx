@@ -1,14 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CalendarDays, Check, ChevronDown, Clock3, RefreshCw } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, Clock3, Link2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
   INTEGRATION_LABELS,
+  IntegrationCatalog,
   IntegrationConfig,
+  connectIntegration,
+  getIntegrationCatalog,
   loadIntegrations,
   saveIntegrations,
 } from '@/services/integrationService';
@@ -44,15 +47,20 @@ const ICON_URLS: Record<IntegrationConfig['provider'], string> = {
   asana: 'https://cdn.simpleicons.org/asana/F06A6A',
   'google-docs': 'https://cdn.simpleicons.org/googledocs/4285F4',
   slack: 'https://a.slack-edge.com/80588/marketing/img/meta/favicon-32.png',
-  teams: 'https://teams.microsoft.com/favicon.ico',
+  teams: 'microsoft-teams.svg',
   trello: 'https://cdn.simpleicons.org/trello/0052CC',
   jira: 'https://cdn.simpleicons.org/jira/0052CC',
   monday: 'https://monday.com/favicon.ico',
   hubspot: 'https://cdn.simpleicons.org/hubspot/FF7A59',
-  salesforce: 'https://www.salesforce.com/favicon.ico',
+  salesforce: 'salesforce.svg',
 };
 
-const ACTIVE_SEND_PROVIDERS = new Set<IntegrationConfig['provider']>(['notion', 'asana']);
+const ACTIVE_SEND_PROVIDERS = new Set<IntegrationConfig['provider']>([
+  'asana',
+  'google-docs',
+  'slack',
+  'teams',
+]);
 
 export function IntegrationsSettings() {
   const { t } = useConfig();
@@ -63,10 +71,13 @@ export function IntegrationsSettings() {
   const [googleWebhookUrl, setGoogleWebhookUrl] = useState('');
   const [isGoogleBusy, setIsGoogleBusy] = useState(false);
   const [showGoogleAdvanced, setShowGoogleAdvanced] = useState(false);
+  const [integrationCatalog, setIntegrationCatalog] = useState<IntegrationCatalog | null>(null);
+  const [isIntegrationBusy, setIsIntegrationBusy] = useState(false);
 
   useEffect(() => {
     setConfigs(loadIntegrations());
     refreshGoogleStatus();
+    refreshIntegrationCatalog();
   }, []);
 
   const refreshGoogleStatus = async () => {
@@ -84,6 +95,37 @@ export function IntegrationsSettings() {
   const handleSave = () => {
     saveIntegrations(configs);
     toast.success(t('integrations.saved'));
+  };
+
+  const refreshIntegrationCatalog = async () => {
+    try {
+      setIntegrationCatalog(await getIntegrationCatalog());
+    } catch {
+      setIntegrationCatalog({ configured: false, providers: [] });
+    }
+  };
+
+  const handleConnectIntegration = async (config: IntegrationConfig) => {
+    setIsIntegrationBusy(true);
+    try {
+      const result = await connectIntegration(config);
+      if (result.connectedAccountId) {
+        const nextConfigs = configs.map((item) => (
+          item.provider === config.provider
+            ? { ...item, connectedAccountId: result.connectedAccountId || '', enabled: true }
+            : item
+        ));
+        setConfigs(nextConfigs);
+        saveIntegrations(nextConfigs);
+      }
+      toast.success(t('integrations.connectionOpened'));
+    } catch (error) {
+      toast.error(t('integrations.connectionFailed'), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIsIntegrationBusy(false);
+    }
   };
 
   const handleSaveGoogle = async () => {
@@ -168,6 +210,7 @@ export function IntegrationsSettings() {
 
   const googleConfig = configs.find((config) => config.provider === 'google-calendar');
   const otherConfigs = configs.filter((config) => config.provider !== 'google-calendar');
+  const cloudIntegrationsConfigured = Boolean(integrationCatalog?.configured);
 
   return (
     <div className="space-y-6">
@@ -281,9 +324,18 @@ export function IntegrationsSettings() {
         </div>
       </section>
 
+      {!cloudIntegrationsConfigured && (
+        <div className="rounded-xl border border-[var(--pt-border)] bg-[var(--pt-brand-soft)] px-3 py-2 text-sm text-[var(--pt-text-primary)]">
+          {t('integrations.cloudNotConfigured')}
+        </div>
+      )}
+
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {otherConfigs.map((config) => {
-          const isConfigurable = ACTIVE_SEND_PROVIDERS.has(config.provider);
+          const cloudProvider = integrationCatalog?.providers.find((item) => item.provider === config.provider);
+          const isReleasedProvider = ACTIVE_SEND_PROVIDERS.has(config.provider);
+          const isConfigurable = isReleasedProvider
+            && (integrationCatalog?.configured ? Boolean(cloudProvider?.connectable || cloudProvider?.sendable) : true);
 
           return (
           <section key={config.provider} className="pt-panel rounded-2xl p-4">
@@ -300,29 +352,34 @@ export function IntegrationsSettings() {
                     {!isConfigurable && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600 dark:bg-stone-800 dark:text-stone-300">
                         <Clock3 className="h-3 w-3" />
-                        Soon
+                        {t('common.soon')}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-stone-500 dark:text-stone-400">{t(HELP_KEYS[config.provider])}</p>
                 </div>
               </div>
-              <Switch
-                checked={isConfigurable && config.enabled}
-                disabled={!isConfigurable}
-                onCheckedChange={(checked) => updateConfig(config.provider, { enabled: checked })}
-              />
+              {isConfigurable ? (
+                <Switch
+                  checked={config.enabled}
+                  onCheckedChange={(checked) => updateConfig(config.provider, { enabled: checked })}
+                />
+              ) : (
+                <Button type="button" size="sm" variant="outline" disabled className="min-w-[84px]">
+                  <Clock3 className="h-4 w-4" />
+                  {t('common.soon')}
+                </Button>
+              )}
             </div>
 
             {isConfigurable ? (
             <div className="mt-4 grid gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-stone-600">{t('integrations.accessToken')}</Label>
+                <Label className="text-xs text-stone-600">{t('integrations.connectedAccountId')}</Label>
                 <Input
-                  type="password"
-                  value={config.token || ''}
-                  onChange={(event) => updateConfig(config.provider, { token: event.target.value })}
-                  placeholder={t('integrations.tokenPlaceholder')}
+                  value={config.connectedAccountId || ''}
+                  onChange={(event) => updateConfig(config.provider, { connectedAccountId: event.target.value })}
+                  placeholder="ca_..."
                 />
               </div>
               <div className="space-y-1.5">
@@ -333,6 +390,15 @@ export function IntegrationsSettings() {
                   placeholder={t('integrations.destinationPlaceholder')}
                 />
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isIntegrationBusy || !cloudIntegrationsConfigured}
+                onClick={() => handleConnectIntegration(config)}
+              >
+                <Link2 className="h-4 w-4" />
+                {t('integrations.connect')}
+              </Button>
               <label className="flex items-center gap-2 text-sm text-stone-700">
                 <Switch
                   checked={config.autoSendSummary}
@@ -343,7 +409,7 @@ export function IntegrationsSettings() {
             </div>
             ) : (
               <div className="mt-4 rounded-xl border border-[var(--pt-border)] bg-[var(--pt-bg-secondary)] px-3 py-2 text-xs text-[var(--pt-text-secondary)]">
-                Visible for roadmap clarity. Full OAuth/API setup will be added before this connector is enabled.
+                {t('integrations.soonDescription')}
               </div>
             )}
           </section>

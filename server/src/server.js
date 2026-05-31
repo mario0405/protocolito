@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import cors from 'cors';
+import { Composio } from '@composio/core';
 import dotenv from 'dotenv';
 import express from 'express';
 import multer from 'multer';
@@ -19,6 +20,63 @@ const rateLimitMaxRequests = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 120);
 const maxSummaryChars = Number(process.env.MAX_SUMMARY_CHARS || 200_000);
 const maxPromptChars = Number(process.env.MAX_PROMPT_CHARS || 8_000);
 const rateLimitBuckets = new Map();
+
+const integrationDefaults = {
+  notion: {
+    label: 'Notion',
+    toolkit: 'notion',
+    authConfigId: 'ac_S9kwK2CjmEEr',
+    toolSlug: 'NOTION_CREATE_NOTION_PAGE',
+  },
+  asana: {
+    label: 'Asana',
+    toolkit: 'asana',
+    authConfigId: 'ac_ryG_8_hkmxMc',
+    toolSlug: 'ASANA_CREATE_A_TASK',
+  },
+  'google-docs': {
+    label: 'Google Docs',
+    toolkit: 'googledocs',
+    authConfigId: 'ac_wKi1dD1vP2FD',
+    toolSlug: 'GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN',
+  },
+  slack: {
+    label: 'Slack',
+    toolkit: 'slack',
+    authConfigId: 'ac_uab06y7ctK1H',
+    toolSlug: 'SLACK_SEND_MESSAGE',
+  },
+  teams: {
+    label: 'Microsoft Teams',
+    toolkit: 'microsoft_teams',
+    authConfigId: 'ac_JTH3Lz65MbLs',
+    toolSlug: 'MICROSOFT_TEAMS_TEAMS_POST_CHAT_MESSAGE',
+  },
+  jira: {
+    label: 'Jira',
+    toolkit: 'jira',
+    authConfigId: 'ac_QF3v5Y6diH25',
+    toolSlug: 'JIRA_CREATE_ISSUE',
+  },
+  monday: {
+    label: 'Monday.com',
+    toolkit: 'monday',
+    authConfigId: 'ac_drgRSeCidLQ7',
+    toolSlug: 'MONDAY_CREATE_ITEM',
+  },
+  hubspot: {
+    label: 'HubSpot',
+    toolkit: 'hubspot',
+    authConfigId: 'ac_AwOmyrA1i_oi',
+    toolSlug: 'HUBSPOT_CREATE_NOTE',
+  },
+  salesforce: {
+    label: 'Salesforce',
+    toolkit: 'salesforce',
+    authConfigId: 'ac_jMie8BCNSwfx',
+    toolSlug: 'SALESFORCE_CREATE_NOTE',
+  },
+};
 
 function splitCsv(value) {
   return String(value || '')
@@ -53,6 +111,148 @@ function ownerConfig() {
     apiKey: process.env.INFOMANIAK_API_KEY || '',
     summaryModels: splitCsv(process.env.INFOMANIAK_SUMMARY_MODELS),
     transcriptionModels: splitCsv(process.env.INFOMANIAK_TRANSCRIPTION_MODELS || 'whisper-large-v3'),
+  };
+}
+
+function loadIntegrationOverrides() {
+  const raw = process.env.COMPOSIO_INTEGRATIONS_JSON || '{}';
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function envName(provider, suffix) {
+  return `COMPOSIO_${provider.replace(/[^a-z0-9]+/gi, '_').toUpperCase()}_${suffix}`;
+}
+
+function integrationConfigs() {
+  const overrides = loadIntegrationOverrides();
+  return Object.entries(integrationDefaults).reduce((configs, [provider, base]) => {
+    const override = overrides[provider] || {};
+    configs[provider] = {
+      ...base,
+      ...override,
+      authConfigId: process.env[envName(provider, 'AUTH_CONFIG_ID')] || override.authConfigId || base.authConfigId,
+      toolSlug: process.env[envName(provider, 'TOOL_SLUG')] || override.toolSlug || base.toolSlug,
+    };
+    return configs;
+  }, {});
+}
+
+function composioClient() {
+  const apiKey = String(process.env.COMPOSIO_API_KEY || '').trim();
+  if (!apiKey) {
+    throw Object.assign(new Error('Composio API key is not configured on the server.'), { statusCode: 503 });
+  }
+
+  return new Composio({
+    apiKey,
+    baseURL: process.env.COMPOSIO_BASE_URL || undefined,
+    allowTracking: false,
+    disableVersionCheck: true,
+    host: 'protocolito-cloud-proxy',
+  });
+}
+
+function integrationUserId(company, body = {}) {
+  const subject = usageSubject(body) || body.email || body.userId || body.deviceId || 'default';
+  return `${company.id}:${String(subject).trim().slice(0, 180)}`;
+}
+
+function getIntegrationConfig(provider) {
+  const config = integrationConfigs()[provider];
+  if (!config) {
+    throw Object.assign(new Error('Unsupported integration provider.'), { statusCode: 400 });
+  }
+  if (!config.authConfigId) {
+    throw Object.assign(new Error(`Composio auth config is missing for ${provider}.`), { statusCode: 503 });
+  }
+  if (!config.toolSlug) {
+    throw Object.assign(new Error(`Composio tool slug is missing for ${provider}.`), { statusCode: 503 });
+  }
+  return config;
+}
+
+function parseDestination(target) {
+  const value = String(target || '').trim();
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : { id: value };
+  } catch {
+    return { id: value };
+  }
+}
+
+function buildIntegrationToolArguments(provider, target, payload = {}) {
+  const title = String(payload.title || 'Protocolito protocol');
+  const markdown = String(payload.markdownPackage || payload.summaryMarkdown || '');
+  const destination = parseDestination(target);
+
+  if (provider === 'notion') {
+    if (!destination.id) throw Object.assign(new Error('Add a Notion parent page or database ID as the destination.'), { statusCode: 400 });
+    return {
+      parent_id: destination.id,
+      database_id: destination.databaseId || destination.id,
+      title,
+      markdown,
+      content: markdown,
+    };
+  }
+
+  if (provider === 'asana') {
+    if (!destination.id) throw Object.assign(new Error('Add an Asana project or workspace gid as the destination.'), { statusCode: 400 });
+    return {
+      data: {
+        name: title,
+        notes: markdown,
+        projects: destination.projectId ? [destination.projectId] : [destination.id],
+        workspace: destination.workspaceId || destination.id,
+      },
+    };
+  }
+
+  if (provider === 'google-docs') {
+    return {
+      title,
+      markdown,
+      text: markdown,
+      folder_id: destination.folderId || destination.id,
+    };
+  }
+
+  if (provider === 'slack') {
+    if (!destination.id) throw Object.assign(new Error('Add a Slack channel ID as the destination.'), { statusCode: 400 });
+    return {
+      channel: destination.id,
+      channel_id: destination.id,
+      text: markdown,
+      message: markdown,
+    };
+  }
+
+  if (provider === 'teams') {
+    if (!destination.id) throw Object.assign(new Error('Add a Microsoft Teams chat or channel ID as the destination.'), { statusCode: 400 });
+    return {
+      chat_id: destination.chatId || destination.id,
+      channel_id: destination.channelId || destination.id,
+      team_id: destination.teamId,
+      content: markdown,
+      body: markdown,
+      message: markdown,
+    };
+  }
+
+  return {
+    title,
+    content: markdown,
+    body: markdown,
+    description: markdown,
+    destination: destination.id || target || '',
+    ...destination,
   };
 }
 
@@ -336,6 +536,80 @@ app.get('/v1/models', authenticate, (req, res) => {
     transcriptionModels: req.company.transcriptionModels || owner.transcriptionModels,
   });
 });
+
+app.get('/v1/integrations', authenticate, (req, res) => {
+  const configured = Boolean(process.env.COMPOSIO_API_KEY);
+  res.json({
+    configured,
+    providers: Object.entries(integrationConfigs()).map(([provider, config]) => ({
+      provider,
+      label: config.label,
+      toolkit: config.toolkit,
+      connectable: configured && Boolean(config.authConfigId),
+      sendable: configured && Boolean(config.toolSlug),
+    })),
+  });
+});
+
+app.post('/v1/integrations/connect', authenticate, asyncHandler(async (req, res) => {
+  const provider = String(req.body?.provider || '').trim();
+  const config = getIntegrationConfig(provider);
+  const userId = integrationUserId(req.company, req.body);
+  const link = await composioClient().connectedAccounts.link(userId, config.authConfigId);
+  res.json({
+    status: 'started',
+    provider,
+    userId,
+    connectedAccountId: link.connectedAccountId || link.connected_account_id || link.id || null,
+    redirectUrl: link.redirectUrl || link.redirect_url || link.url || link.link || null,
+  });
+}));
+
+app.post('/v1/integrations/status', authenticate, asyncHandler(async (req, res) => {
+  const connectedAccountId = String(req.body?.connectedAccountId || '').trim();
+  if (!connectedAccountId) {
+    res.status(400).json({ error: 'Missing connected account ID.' });
+    return;
+  }
+  const account = await composioClient().connectedAccounts.get(connectedAccountId);
+  res.json({
+    connectedAccountId,
+    status: account.status || account.connectionStatus || null,
+    provider: req.body?.provider || null,
+  });
+}));
+
+app.post('/v1/integrations/send-summary', authenticate, asyncHandler(async (req, res) => {
+  const provider = String(req.body?.provider || '').trim();
+  const connectedAccountId = String(req.body?.connectedAccountId || '').trim();
+  if (!connectedAccountId) {
+    res.status(400).json({ error: 'Connect this integration before sending.' });
+    return;
+  }
+
+  const config = getIntegrationConfig(provider);
+  const args = buildIntegrationToolArguments(provider, req.body?.target, req.body?.payload || {});
+  const result = await composioClient().tools.execute(config.toolSlug, {
+    userId: integrationUserId(req.company, req.body),
+    connectedAccountId,
+    dangerouslySkipVersionCheck: true,
+    arguments: args,
+  });
+
+  if (result?.successful === false || result?.error) {
+    res.status(502).json({ error: result.error || 'Composio integration execution failed.', result });
+    return;
+  }
+
+  appendUsage({
+    type: 'integration_send',
+    companyId: req.company.id,
+    provider,
+    connectedAccountId,
+    outputChars: JSON.stringify(result || {}).length,
+  });
+  res.json({ status: 'success', provider, result });
+}));
 
 app.post('/v1/summarize', authenticate, asyncHandler(async (req, res) => {
   const owner = requireOwnerConfig();

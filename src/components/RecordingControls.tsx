@@ -148,12 +148,15 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
       const savePath = `${dataDir}/recording-${timestamp}.wav`;
       console.log('Saving recording to:', savePath);
       console.log('About to call stop_recording command');
-      const result = await invoke('stop_recording', {
+      const result = await invoke<{ transcriptionError?: string }>('stop_recording', {
         args: {
           save_path: savePath
         }
       });
       console.log('stop_recording command completed successfully:', result);
+      if (result?.transcriptionError) {
+        throw new Error(result.transcriptionError);
+      }
       setRecordingPath(savePath);
       // setShowPlayback(true);
       setIsProcessing(false);

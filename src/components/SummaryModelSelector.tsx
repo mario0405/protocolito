@@ -10,12 +10,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ModelConfig, ModelSettingsModal } from '@/components/ModelSettingsModal';
+import { ModelConfig } from '@/components/ModelSettingsModal';
+import { BuiltInModelManager } from '@/components/BuiltInModelManager';
 import { InfomaniakModelSelector } from '@/components/settings/InfomaniakModelSelector';
 import { getInfomaniakCloudConfig } from '@/services/infomaniakCloudService';
 import { useConfig } from '@/contexts/ConfigContext';
+import { cn } from '@/lib/utils';
 
 type SummarySource = 'local' | 'infomaniak';
+
+const LOCAL_SUMMARY_MODELS = [
+  {
+    value: 'qwen2.5-0.5b-instruct-q4',
+    label: 'Qwen 2.5 0.5B - Schnell',
+  },
+  {
+    value: 'qwen2.5-1.5b-instruct-q4',
+    label: 'Qwen 2.5 1.5B - Balanced',
+  },
+  {
+    value: 'qwen2.5-3b-instruct-q4',
+    label: 'Qwen 2.5 3B - Beste Qualität',
+  },
+];
+
+const SOON_SUMMARY_MODELS = [
+  'Llama 3.2 3B - Soon',
+  'Phi-3.5 Mini - Soon',
+  'Gemma 2 2B - Soon',
+  'Mistral 7B - Soon',
+];
 
 interface SummaryModelSelectorProps {
   modelConfig: ModelConfig;
@@ -26,16 +50,24 @@ interface SummaryModelSelectorProps {
 }
 
 function isLocalSummaryProvider(provider: ModelConfig['provider']) {
-  return provider === 'ollama' || provider === 'builtin-ai';
+  return provider === 'builtin-ai';
 }
 
 function asLocalSummaryConfig(config: ModelConfig): ModelConfig {
-  if (isLocalSummaryProvider(config.provider)) return config;
+  if (isLocalSummaryProvider(config.provider)) {
+    return {
+      ...config,
+      provider: 'builtin-ai',
+      model: config.model || LOCAL_SUMMARY_MODELS[0].value,
+      apiKey: null,
+      ollamaEndpoint: null,
+    };
+  }
 
   return {
     ...config,
     provider: 'builtin-ai',
-    model: 'gemma3:1b',
+    model: LOCAL_SUMMARY_MODELS[0].value,
     apiKey: null,
     ollamaEndpoint: null,
   };
@@ -93,12 +125,13 @@ export function SummaryModelSelector({
     }
   }, [onSave, onSaved]);
 
-  const handleSourceChange = (nextSource: SummarySource) => {
+  const handleSourceChange = async (nextSource: SummarySource) => {
     setSource(nextSource);
 
     if (nextSource === 'local') {
       const localConfig = asLocalSummaryConfig(modelConfig);
       setModelConfig(localConfig);
+      await saveConfig(localConfig, t('summary.savedLocal'));
       return;
     }
 
@@ -136,8 +169,16 @@ export function SummaryModelSelector({
     await saveConfig(config, t('summary.savedLocal'));
   };
 
-  const handleSetLocalModelConfig = (config: ModelConfig | ((prev: ModelConfig) => ModelConfig)) => {
-    setModelConfig((prev) => asLocalSummaryConfig(typeof config === 'function' ? config(asLocalSummaryConfig(prev)) : config));
+  const handleLocalModelSelect = async (model: string) => {
+    const nextConfig = asLocalSummaryConfig({
+      ...modelConfig,
+      provider: 'builtin-ai',
+      model,
+      apiKey: null,
+      ollamaEndpoint: null,
+    });
+    setModelConfig(nextConfig);
+    await handleSaveLocalSummary(nextConfig);
   };
 
   return (
@@ -184,12 +225,42 @@ export function SummaryModelSelector({
           onSave={handleSaveInfomaniakSummary}
         />
       ) : (
-        <ModelSettingsModal
-          modelConfig={localModelConfig}
-          setModelConfig={handleSetLocalModelConfig}
-          onSave={handleSaveLocalSummary}
-          skipInitialFetch={true}
-        />
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <Label>{t('summary.localModel')}</Label>
+            <Select
+              value={localModelConfig.model || LOCAL_SUMMARY_MODELS[0].value}
+              onValueChange={handleLocalModelSelect}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t('summary.localModelPlaceholder')} />
+              </SelectTrigger>
+              <SelectContent>
+                {LOCAL_SUMMARY_MODELS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+                {SOON_SUMMARY_MODELS.map((label) => (
+                  <SelectItem key={label} value={label} disabled>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <p className="text-xs text-stone-600 dark:text-stone-300">
+            {t('summary.localRecommendation')}
+          </p>
+
+          <div className={cn('space-y-3')}>
+            <BuiltInModelManager
+              selectedModel={localModelConfig.model || LOCAL_SUMMARY_MODELS[0].value}
+              onModelSelect={handleLocalModelSelect}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

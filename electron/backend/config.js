@@ -40,7 +40,7 @@ function defaultNotificationSettings() {
 function defaultModelConfig() {
   return {
     provider: 'builtin-ai',
-    model: 'gemma3:1b',
+    model: 'qwen2.5-0.5b-instruct-q4',
     whisperModel: 'large-v3-turbo',
     apiKey: null,
     ollamaEndpoint: null,
@@ -56,6 +56,9 @@ function normalizeModelConfig(config) {
     next.model = defaults.model;
   }
   if (!next.model && next.provider !== 'infomaniak') next.model = defaults.model;
+  if (next.provider === 'builtin-ai' && /^gemma3:/i.test(String(next.model || ''))) {
+    next.model = defaults.model;
+  }
   if (!next.whisperModel) next.whisperModel = defaults.whisperModel;
   if (next.provider === 'infomaniak') {
     next.productId = null;

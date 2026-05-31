@@ -117,6 +117,78 @@ async function getCloudModels(app, configOverride = null) {
   return callCloudJson({ app, path: '/v1/models', configOverride });
 }
 
+async function getCloudIntegrations(app, configOverride = null) {
+  return callCloudJson({ app, path: '/v1/integrations', configOverride });
+}
+
+async function connectCloudIntegration({
+  app,
+  provider,
+  userId,
+  deviceId,
+  configOverride = null,
+}) {
+  return callCloudJson({
+    app,
+    path: '/v1/integrations/connect',
+    method: 'POST',
+    configOverride,
+    body: {
+      provider,
+      userId: userId || undefined,
+      deviceId: deviceId || undefined,
+    },
+  });
+}
+
+async function getCloudIntegrationStatus({
+  app,
+  provider,
+  connectedAccountId,
+  userId,
+  deviceId,
+  configOverride = null,
+}) {
+  return callCloudJson({
+    app,
+    path: '/v1/integrations/status',
+    method: 'POST',
+    configOverride,
+    body: {
+      provider,
+      connectedAccountId,
+      userId: userId || undefined,
+      deviceId: deviceId || undefined,
+    },
+  });
+}
+
+async function sendCloudIntegrationSummary({
+  app,
+  provider,
+  connectedAccountId,
+  target,
+  payload,
+  userId,
+  deviceId,
+  configOverride = null,
+}) {
+  return callCloudJson({
+    app,
+    path: '/v1/integrations/send-summary',
+    method: 'POST',
+    configOverride,
+    body: {
+      provider,
+      connectedAccountId,
+      target,
+      payload,
+      userId: userId || undefined,
+      deviceId: deviceId || undefined,
+    },
+  });
+}
+
 async function summarizeWithCloud({ app, text, model, customPrompt, userId, deviceId, configOverride = null }) {
   const data = await callCloudJson({
     app,
@@ -171,7 +243,8 @@ async function transcribeWithCloud({ app, audioData, mimeType, fileName, model, 
 
   const data = await response.json().catch(async () => ({ error: await response.text() }));
   if (!response.ok) {
-    throw new Error(`Protocolito cloud returned ${response.status}: ${data.error || JSON.stringify(data)}`);
+    const details = data.details || data.error || JSON.stringify(data);
+    throw new Error(`Protocolito cloud returned ${response.status}: ${details}`);
   }
 
   return {
@@ -183,8 +256,12 @@ async function transcribeWithCloud({ app, audioData, mimeType, fileName, model, 
 }
 
 module.exports = {
+  connectCloudIntegration,
   getCloudModels,
+  getCloudIntegrationStatus,
+  getCloudIntegrations,
   readProtocolitoCloudConfig,
+  sendCloudIntegrationSummary,
   summarizeWithCloud,
   transcribeWithCloud,
 };
